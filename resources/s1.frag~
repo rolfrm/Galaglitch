@@ -1,7 +1,0 @@
-#version 410
-out vec4 color;
-in vec3 col;
-void main(){
-  vec3 col2 = vec3(1.0) / col.x;
-  color = vec4(col2 ,1.0);
-} 
