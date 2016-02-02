@@ -79,3 +79,4 @@ void game_ui_update(game_ui * renderer, const game_data * gd);
 game_ui * game_ui_init();
 void game_ui_deinit(game_ui ** renderer);
 void game_ui_draw_image(game_ui * rnd, void *data, int width, int height);
+void game_ui_get_cursor_pos(game_ui * renderer, double * xpos, double * ypos);

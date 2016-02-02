@@ -164,18 +164,29 @@ float circle_distance(float x, float y, float sx, float sy, float r){
   return sqrtf(x * x + y * y ) - r ;
 }
 
+float _mod(float v, int div){
+  int rest = v / div;
+  return v - rest * div;
+}
+
 float distance(float x, float y, void * distance_field){
  
   float d3 = -circle_distance(x,y, 200, 200, 150);
   
-  //if(d3 < 0)
-  //  return d3;
-  //float d4 = circle_distance(x, y, 100, 105, 30);
+  if(d3 < 1.0)
+    return d3;
+  x = fmodf(x, 33) - 16;
+  y = fmodf(y, 33) - 16;
+  
+  float d4 = circle_distance(x, y, 0, 0, 10);
+  return MIN(d4, d3);
+  //float d4 = circle_distance(x, y, 180, 180, 60);
   //if(d4 > 1) return MIN(d3, d4);
   
-  float d1 = circle_distance(x, y, 200, 220, 20);
-  float d2 = circle_distance(x, y, 200, 190, 20);
-  return MIN(d3, MIN(d1,d2));
+  //float d1 = circle_distance(x, y, 200, 220, 10);
+  //float d2 = circle_distance(x, y, 200, 190, 10);
+  //float d5 = circle_distance(x, y, 160, 160, 10);
+  //return MIN(d3, MIN(d5, MIN(d1,d2)));
 }
 
 typedef struct {
@@ -184,41 +195,53 @@ typedef struct {
   void * data;
 }image;
 
-void set_pixel_gray(image * img, int x, int y,char color){
-  ASSERT(x >= 0 && y >= 0 && x < img->width && y < img->height);
-  char * d = img->data;
-  int offset = (x + y * img->width) * 3;
-  d[offset] = color;
-  d[offset + 1] = color;
-  d[offset + 2] = color;
-  
+void set_pixel_gray(image * img, int x, int y,u8 color){
+  if(x >= 0 && y >= 0 && x < img->width && y < img->height){
+    char * d = img->data;
+    int offset = (x + y * img->width) * 3;
+    d[offset] = color;
+    d[offset + 1] = color;
+    d[offset + 2] = color;
+  }
 }
 
 void render_distance_field(image * img, float (* f)(float x, float y, void * userdata), void * userdata)
 {
+  int it = 0;
   for(int i =0 ; i < img->height; i++){
     for(int j = 0; j < img->width; j++){
       float d = f(j, i, userdata);
-      if(d < 1.0){
-	if(d < 0)
-	  d = 0.0;
-
-	set_pixel_gray(img, j, i, (char)((1.0 - d) * 255));
-      }
+      if(d >= 1)
+	continue;
+      if(d < 0)
+	d = 0.0;
+      d = 1 - d;
+      set_pixel_gray(img, j, i, d * 255);
+      it++;    
     }
   }
+  logd("it: %i\n", it);
 }
 
-void trace_distance_field_inner(image * img, float start_x, float start_y, float ang, float d, float (* f)(float x, float y, void * userdata), void * userdata){
+void trace_distance_field_inner(image * img, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata){
+  float r_dist = sinf(angle_sec * 0.5);
   while(d < 400){
     float dx = sin(ang);
     float dy = cos(ang);
     float xoff = dx * d + start_x;
     float yoff = dy * d + start_y;
     float d2 = f(xoff, yoff, userdata);
+    if(d2 < r_dist * d && angle_sec > 0.001){
+      float ratio[] = {-0.5, 0.5};
+      for(int i = 0; i < 2; i++){
+	float angle = ang + angle_sec * ratio[i]; 
+	trace_distance_field_inner(img, start_x, start_y, angle, angle_sec * 0.5, d * 0.95, f, userdata);
+      }
+      return;
+    }
     set_pixel_gray(img, (int)xoff, (int)yoff, 255);
-    if(d2 < 0.001){
-      set_pixel_gray(img, (int)xoff, (int)yoff, 255);
+    if(d2 < 1){
+      
       return;
     }
     
@@ -229,9 +252,10 @@ void trace_distance_field_inner(image * img, float start_x, float start_y, float
 void trace_distance_field(image * img, float start_x, float start_y,float (* f)(float x, float y, void * userdata), void * userdata){
   float angle = 2 * 3.14;
   float d = f(start_x, start_y, userdata);
-  int cnt = 256;
+  int cnt = 16;
+  float angle_sec = (angle / (float)cnt);
   for(int i = 0; i < cnt; i++)
-    trace_distance_field_inner(img, start_x, start_y, (angle / (float)cnt) * (float) i, d, f, userdata);
+    trace_distance_field_inner(img, start_x, start_y, angle_sec  * (float) i, angle_sec, d, f, userdata);
 }
 
 bool test_distance_field(){
@@ -240,19 +264,19 @@ bool test_distance_field(){
   image img = {400, 400, alloc0(400 * 400 * 3)};
 
   for(int i = 0; i < 10000; i++){
-    float offset = sin((float) i / 90.0)* 100;
-    float offset2 = cos((float) i / 100.0)* 100;
-    /*u8 * d = img.data;
-    for(int i = 0 ; i < 400 * 400 * 3; i++){
-      
-      if(d[i] > 20) d[i] -= 20;
-      }*/
-    memset(img.data, 0, 400 * 400 * 3);
+    double phase = i * 0.01;
+    double xpos, ypos;
+    xpos = sin(phase) * 100 + 200;
+    ypos = cos(phase) * 100 + 200;
+    //game_ui_get_cursor_pos(rnd, &xpos, &ypos);
+    //memset(img.data, 0, 400 * 400 * 3);
     u64 t1 = timestamp();
     //render_distance_field(&img, distance, NULL);
-    trace_distance_field(&img, 200 + offset, 200 + offset2, distance, NULL);
+    trace_distance_field(&img, (int)xpos, 400 -(int)ypos, distance, NULL);
+    //iron_usleep(100000);
     u64 t2 = timestamp();
-    logd("Render time: %ius\n", t2 - t1);
+    u64 dt = t2 - t1;
+    logd("Render time: %i us\n", dt);
     game_ui_draw_image(rnd, img.data, img.width, img.height);
     iron_usleep(10000);
   }

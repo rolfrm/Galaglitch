@@ -174,3 +174,7 @@ void game_ui_deinit(game_ui ** _ui){
   hashstate_free(&ui->hashstate);
   memset(ui, 0, sizeof(*ui));
 }
+
+void game_ui_get_cursor_pos(game_ui * renderer, double * xpos, double * ypos){
+  glfwGetCursorPos(renderer->window, xpos, ypos);
+}
