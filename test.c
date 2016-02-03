@@ -223,7 +223,36 @@ void render_distance_field(image * img, float (* f)(float x, float y, void * use
   logd("it: %i\n", it);
 }
 
-void trace_distance_field_inner(image * img, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata){
+typedef struct{
+  float * angle;
+  float * distance;
+  int cnt;
+  int capacity;
+}trace_points;
+
+void trace_points_add(trace_points * pts, float angle, float distance){
+  if(pts->cnt == pts->capacity){
+    int newcap = pts->cnt * 2 + 1;
+    pts->angle = realloc(pts->angle, newcap * sizeof(float));
+    pts->distance = realloc(pts->distance, newcap * 2 * sizeof(float));
+    pts->capacity = newcap;
+  }
+  pts->angle[pts->cnt] = angle;
+  pts->distance[pts->cnt] = distance;
+  pts->cnt += 1; 
+}
+
+void trace_points_clear(trace_points * pts){
+  pts->cnt = 0;
+}
+
+void trace_points_delete(trace_points * pts){
+  dealloc(pts->angle);
+  dealloc(pts->distance);
+  memset(pts, 0, sizeof(trace_points));
+}
+
+void trace_distance_field_inner(image * img, trace_points * pts, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata){
   float r_dist = sinf(angle_sec * 0.5);
   while(d < 400){
     float dx = sin(ang);
@@ -235,13 +264,13 @@ void trace_distance_field_inner(image * img, float start_x, float start_y, float
       float ratio[] = {-0.5, 0.5};
       for(int i = 0; i < 2; i++){
 	float angle = ang + angle_sec * ratio[i]; 
-	trace_distance_field_inner(img, start_x, start_y, angle, angle_sec * 0.5, d * 0.95, f, userdata);
+	trace_distance_field_inner(img, pts, start_x, start_y, angle, angle_sec * 0.5, d * 0.95, f, userdata);
       }
       return;
     }
     set_pixel_gray(img, (int)xoff, (int)yoff, 255);
     if(d2 < 1){
-      
+      trace_points_add(pts, ang, d + d2);
       return;
     }
     
@@ -249,21 +278,22 @@ void trace_distance_field_inner(image * img, float start_x, float start_y, float
   }
 }
 
-void trace_distance_field(image * img, float start_x, float start_y,float (* f)(float x, float y, void * userdata), void * userdata){
+void trace_distance_field(image * img, trace_points * pts, float start_x, float start_y,float (* f)(float x, float y, void * userdata), void * userdata){
   float angle = 2 * 3.14;
   float d = f(start_x, start_y, userdata);
   int cnt = 16;
   float angle_sec = (angle / (float)cnt);
   for(int i = 0; i < cnt; i++)
-    trace_distance_field_inner(img, start_x, start_y, angle_sec  * (float) i, angle_sec, d, f, userdata);
+    trace_distance_field_inner(img, pts, start_x, start_y, angle_sec  * (float) i, angle_sec, d, f, userdata);
 }
 
 bool test_distance_field(){
   game_ui * rnd = game_ui_init();
   ASSERT(rnd != NULL);
   image img = {400, 400, alloc0(400 * 400 * 3)};
-
+  trace_points pts = {0};
   for(int i = 0; i < 10000; i++){
+    trace_points_clear(&pts);
     double phase = i * 0.01;
     double xpos, ypos;
     xpos = sin(phase) * 100 + 200;
@@ -272,7 +302,8 @@ bool test_distance_field(){
     //memset(img.data, 0, 400 * 400 * 3);
     u64 t1 = timestamp();
     //render_distance_field(&img, distance, NULL);
-    trace_distance_field(&img, (int)xpos, 400 -(int)ypos, distance, NULL);
+    trace_distance_field(&img, &pts, (int)xpos, 400 -(int)ypos, distance, NULL);
+    logd("Trace points: %i\n", pts.cnt);
     //iron_usleep(100000);
     u64 t2 = timestamp();
     u64 dt = t2 - t1;
