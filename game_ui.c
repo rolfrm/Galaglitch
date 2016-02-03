@@ -147,7 +147,8 @@ void game_ui_draw_image(game_ui * ui, void *data, int width, int height){
   glfwSwapBuffers(ui->window);	       
 }
 
-void game_ui_draw_angular(game_ui * ui, float * angle, float * distance, int cnt){
+void game_ui_draw_angular(game_ui * renderer, double * angle, double * distance, int cnt,
+			  float xpos, float ypos){
 
 }
 
