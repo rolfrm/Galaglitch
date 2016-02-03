@@ -173,13 +173,15 @@ float distance(float x, float y, void * distance_field){
 
   float d6 = -circle_distance(x, y, 0, 0, 500);
   
+  x = fmodf(x, 120) - 60;
+  y = fmodf(y, 120) - 60;
   float d3 = circle_distance(x,y, 0, 0, 20);
+  return d3;
   float d4 = circle_distance(x,y, 100, 000, 20);
   float d5 = circle_distance(x,y, 200, 200, 20);
   float d2 = circle_distance(x,y, 000, 200, 20);
   return MIN(d2, MIN(d6, MIN(d5, MIN(d4, d3))));
-  //x = fmodf(x, 120) - 60;
-  //y = fmodf(y, 120) - 60;
+  
   
   //
   
