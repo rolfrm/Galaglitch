@@ -22,6 +22,13 @@ typedef struct {
 }s1;
 
 typedef struct{
+  int program;
+  int vert_attr;
+  int offset_uniform;
+  int scale_uniform;
+}s2;
+
+typedef struct{
   int vertex_buffer;
   int vertex_cnt;
   int face_buffer;
@@ -29,11 +36,22 @@ typedef struct{
   u64 hash;
 }ui_model;
 
+typedef struct{
+  int vertex_buffer;
+  int cnt;
+  int capacity;
+  u64 hash;
+}angle_model;
+
 struct _game_ui{
   GLFWwindow * window;
   hashstate * hashstate;
   ui_model floor_model;
   s1 shader1;
+
+  // testing
+  s2 shader2;
+  angle_model angle_model;
 };
 
 static void load_s1(s1 * s){
@@ -44,6 +62,20 @@ static void load_s1(s1 * s){
   i32 prog = load_simple_shader(vert_code, strlen(vert_code), frag_code, strlen(frag_code));
   s->program = prog;
   s->vert_attr = 0;
+  dealloc(vert_code);
+  dealloc(frag_code);
+}
+
+static void load_s2(s2 * s){
+  char * vert_code = read_file_to_string("resources/s2.vert");
+  char * frag_code = read_file_to_string("resources/s1.frag");
+  ASSERT(vert_code != NULL);
+  ASSERT(frag_code != NULL);
+  i32 prog = load_simple_shader(vert_code, strlen(vert_code), frag_code, strlen(frag_code));
+  s->program = prog;
+  s->vert_attr = 0;
+  s->offset_uniform = glGetUniformLocation(s->program, "offset");
+  s->scale_uniform = glGetUniformLocation(s->program, "scale");
   dealloc(vert_code);
   dealloc(frag_code);
 }
@@ -102,6 +134,40 @@ static void load_model(game_ui * ui, ui_model * model, vertex_list verts, face_l
   model->face_cnt = faces.cnt;
 }
 
+static void load_angle_model(game_ui * ui, angle_model * model, float * angles, float * distances, int cnt){
+  int cnt2 = cnt + 3;
+  if(model->vertex_buffer == 0){
+    glGenBuffers(1, &model->vertex_buffer);
+  }
+  glBindBuffer(GL_ARRAY_BUFFER, model->vertex_buffer);
+  if(cnt2 > model->capacity){
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 2 * cnt2, NULL, GL_STREAM_DRAW);
+    model->capacity = cnt2;
+  }
+  model->cnt = cnt2;
+  float * data = glMapBufferRange(GL_ARRAY_BUFFER, 0, cnt2 * 2 * sizeof(float),
+				  GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+  ASSERT(data != NULL);
+  if(cnt2 == 3){
+    memset(data, 0, sizeof(float) * cnt2 * 3);
+    
+  }
+  else{
+    data[0] = 0;
+    data[1] = 0;//distances[0];
+    data += 2;
+    data[0] = 0;
+    data[1] = distances[0];
+    data += 2;
+    for(int i = 0; i < cnt; i++){
+      data[i*2] = angles[i];
+      data[i*2 + 1] = distances[i];
+    }
+    data[cnt * 2] = 0;
+    data[cnt* 2 + 1] = distances[0];
+  }
+  ASSERT(GL_TRUE == glUnmapBuffer(GL_ARRAY_BUFFER));
+}
 
 
 static void draw_model(s1 shader, ui_model model){
@@ -139,17 +205,38 @@ void game_ui_update(game_ui * ui, const game_data * gd){
   glfwSwapBuffers(ui->window);  
 }
 
-void game_ui_draw_image(game_ui * ui, void *data, int width, int height){
+void game_ui_clear(game_ui * ui){
   glfwMakeContextCurrent(ui->window);
   glClearColor(0.0,0,0,0);
   glClear(GL_COLOR_BUFFER_BIT);
+}
+
+void game_ui_swap(game_ui * ui){
+  glfwSwapBuffers(ui->window);
+}
+
+void game_ui_draw_image(game_ui * ui, void *data, int width, int height){
   glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
-  glfwSwapBuffers(ui->window);	       
 }
 
 void game_ui_draw_angular(game_ui * renderer, double * angle, double * distance, int cnt,
 			  float xpos, float ypos){
-
+  load_angle_model(renderer, &renderer->angle_model, angle, distance, cnt);
+  angle_model model = renderer->angle_model;
+  assert_no_glerr();
+  glUseProgram(renderer->shader2.program);
+  glUniform2f(renderer->shader2.offset_uniform, -xpos, -ypos);
+  glUniform2f(renderer->shader2.scale_uniform, 1.0 / 200.0, 1.0 / 200.0);
+  glBindBuffer(GL_ARRAY_BUFFER, model.vertex_buffer);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glVertexPointer(2, GL_FLOAT, 0, 0);
+  assert_no_glerr();
+  glVertexAttribPointer(renderer->shader2.vert_attr, 2, GL_FLOAT, GL_FALSE, 0, 0);
+  assert_no_glerr();
+  glDrawArrays(GL_TRIANGLE_FAN, 0, model.cnt);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  assert_no_glerr();
 }
 
 game_ui * game_ui_init(){
@@ -166,6 +253,7 @@ game_ui * game_ui_init(){
   glfwMakeContextCurrent(r.window);
   ASSERT(GLEW_OK == glewInit());
   load_s1(&r.shader1);
+  load_s2(&r.shader2);
   return iron_clone(&r, sizeof(r));
 }
 
