@@ -281,6 +281,7 @@ void trace_distance_field_inner(image * img, trace_points * pts, float start_x, 
 void trace_distance_field(image * img, trace_points * pts, float start_x, float start_y,float (* f)(float x, float y, void * userdata), void * userdata){
   float angle = 2 * 3.14;
   float d = f(start_x, start_y, userdata);
+  if(d < 0) return;
   int cnt = 16;
   float angle_sec = (angle / (float)cnt);
   for(int i = 0; i < cnt; i++)
