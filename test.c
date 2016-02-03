@@ -173,13 +173,13 @@ float distance(float x, float y, void * distance_field){
  
   float d3 = -circle_distance(x,y, 200, 200, 150);
   
-  if(d3 < 1.0)
-    return d3;
+  //if(d3 < 1.0)
+  //  return d3;
   x = fmodf(x, 33) - 16;
   y = fmodf(y, 33) - 16;
   
   float d4 = circle_distance(x, y, 0, 0, 10);
-  return MIN(d4, d3);
+  return d4;//return MIN(d4, d3);
   //float d4 = circle_distance(x, y, 180, 180, 60);
   //if(d4 > 1) return MIN(d3, d4);
   
@@ -297,9 +297,9 @@ bool test_distance_field(){
     trace_points_clear(&pts);
     double phase = i * 0.01;
     double xpos, ypos;
-    xpos = sin(phase) * 100 + 200;
-    ypos = cos(phase) * 100 + 200;
-    //game_ui_get_cursor_pos(rnd, &xpos, &ypos);
+    xpos = sin(phase) * 50 + 200;
+    ypos = cos(phase) * 50 + 200;
+    game_ui_get_cursor_pos(rnd, &xpos, &ypos);
     //memset(img.data, 0, 400 * 400 * 3);
     u64 t1 = timestamp();
     //render_distance_field(&img, distance, NULL);

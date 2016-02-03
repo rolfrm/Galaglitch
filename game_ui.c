@@ -144,9 +144,11 @@ void game_ui_draw_image(game_ui * ui, void *data, int width, int height){
   glClearColor(0.0,0,0,0);
   glClear(GL_COLOR_BUFFER_BIT);
   glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
-  glfwSwapBuffers(ui->window);
+  glfwSwapBuffers(ui->window);	       
+}
 
-	       
+void game_ui_draw_angular(game_ui * ui, float * angle, float * distance, int cnt){
+
 }
 
 game_ui * game_ui_init(){
