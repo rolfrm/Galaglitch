@@ -172,7 +172,6 @@ static void load_angle_model(game_ui * ui, angle_model * model, float * angles, 
 
 static void draw_model(s1 shader, ui_model model){
   ASSERT(model.vertex_cnt > 0);
-  //logd("Vertex buffer: %i\n", model.vertex_buffer);
   glBindBuffer(GL_ARRAY_BUFFER, model.vertex_buffer);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.face_buffer);
   glEnableClientState(GL_VERTEX_ARRAY);
@@ -181,7 +180,6 @@ static void draw_model(s1 shader, ui_model model){
   glVertexAttribPointer(shader.vert_attr, 3, GL_FLOAT, GL_FALSE, 0, 0);
   assert_no_glerr();
   glDrawElements(GL_TRIANGLES, model.face_cnt * 3, GL_UNSIGNED_INT, 0);
-  //glDrawArrays(GL_POINTS, 0, model.vertex_cnt);
   assert_no_glerr();
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -195,13 +193,11 @@ void game_ui_update(game_ui * ui, const game_data * gd){
   glUseProgram(ui->shader1.program);
   assert_no_glerr();
   load_model(ui, &ui->floor_model, gd->floor.vertexes, gd->floor.faces);
-
   assert_no_glerr();
   glClearColor(0.0,0,0,0);
   glClear(GL_COLOR_BUFFER_BIT);
   draw_model(ui->shader1, ui->floor_model);
   assert_no_glerr();
-
   glfwSwapBuffers(ui->window);  
 }
 
@@ -223,16 +219,13 @@ void game_ui_draw_angular(game_ui * renderer, double * angle, double * distance,
 			  float xpos, float ypos){
   load_angle_model(renderer, &renderer->angle_model, angle, distance, cnt);
   angle_model model = renderer->angle_model;
-  assert_no_glerr();
   glUseProgram(renderer->shader2.program);
   glUniform2f(renderer->shader2.offset_uniform, -xpos, -ypos);
   glUniform2f(renderer->shader2.scale_uniform, 1.0 / 200.0, 1.0 / 200.0);
   glBindBuffer(GL_ARRAY_BUFFER, model.vertex_buffer);
   glEnableClientState(GL_VERTEX_ARRAY);
   glVertexPointer(2, GL_FLOAT, 0, 0);
-  assert_no_glerr();
   glVertexAttribPointer(renderer->shader2.vert_attr, 2, GL_FLOAT, GL_FALSE, 0, 0);
-  assert_no_glerr();
   glDrawArrays(GL_TRIANGLE_FAN, 0, model.cnt);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glDisableClientState(GL_VERTEX_ARRAY);
@@ -242,9 +235,7 @@ void game_ui_draw_angular(game_ui * renderer, double * angle, double * distance,
 game_ui * game_ui_init(){
   static bool glfwInited = false;
   if(!glfwInited){
-
     glfwInit();
-
     glfwInited = true;
   }
   game_ui r = {0};

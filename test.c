@@ -170,15 +170,20 @@ float _mod(float v, int div){
 }
 
 float distance(float x, float y, void * distance_field){
- 
-  //float d3 = -circle_distance(x,y, 200, 200, 150);
 
-  x = fmodf(x, 66) - 33;
-  y = fmodf(y, 66) - 33;
+  float d6 = -circle_distance(x, y, 0, 0, 500);
   
-  float d4 = circle_distance(x, y, 0, 0, 15);
+  float d3 = circle_distance(x,y, 0, 0, 20);
+  float d4 = circle_distance(x,y, 100, 000, 20);
+  float d5 = circle_distance(x,y, 200, 200, 20);
+  float d2 = circle_distance(x,y, 000, 200, 20);
+  return MIN(d2, MIN(d6, MIN(d5, MIN(d4, d3))));
+  //x = fmodf(x, 120) - 60;
+  //y = fmodf(y, 120) - 60;
   
-  return d4;//MIN(d3, d4);//return MIN(d4, d3);
+  //
+  
+  //return d4;//MIN(d3, d4);//return MIN(d4, d3);
   //float d4 = circle_distance(x, y, 180, 180, 60);
   //if(d4 > 1) return MIN(d3, d4);
   
@@ -233,7 +238,7 @@ void trace_points_add(trace_points * pts, float angle, float distance){
   if(pts->cnt == pts->capacity){
     int newcap = pts->cnt * 2 + 1;
     pts->angle = realloc(pts->angle, newcap * sizeof(float));
-    pts->distance = realloc(pts->distance, newcap * 2 * sizeof(float));
+    pts->distance = realloc(pts->distance, newcap * sizeof(float));
     pts->capacity = newcap;
   }
   pts->angle[pts->cnt] = angle;
@@ -253,7 +258,7 @@ void trace_points_delete(trace_points * pts){
 
 void trace_distance_field_inner(image * img, trace_points * pts, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata){
   float r_dist = sinf(angle_sec * 0.5);
-  while(d < 400){
+  while(d < 500){
     float dx = sin(ang);
     float dy = cos(ang);
     float xoff = dx * d + start_x;
@@ -268,21 +273,21 @@ void trace_distance_field_inner(image * img, trace_points * pts, float start_x, 
       return;
       }*/
     
-    set_pixel_gray(img, (int)xoff, (int)yoff, 255);
-    if(d2 < 0.001){
+    //set_pixel_gray(img, (int)xoff, (int)yoff, 255);
+    if(d2 < 0.0001){
       trace_points_add(pts, ang, d + d2);
       return;
     }
-    
     d += d2;
   }
+  trace_points_add(pts, ang, d);
 }
 
 void trace_distance_field(image * img, trace_points * pts, float start_x, float start_y,float (* f)(float x, float y, void * userdata), void * userdata){
   float angle = 2 * 3.14;
   float d = f(start_x, start_y, userdata);
   //if(d < 0) return;
-  int cnt = 4000;
+  int cnt = 1000;
   float angle_sec = (angle / (float)cnt);
   for(int i = 0; i < cnt; i++)
     trace_distance_field_inner(img, pts, start_x, start_y, angle_sec  * (float) i, angle_sec, d, f, userdata);
@@ -311,7 +316,7 @@ bool test_distance_field(){
     logd("Render time: %i us\n", dt);
     game_ui_clear(rnd);
     //game_ui_draw_image(rnd, img.data, img.width, img.height);
-    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0.5, 0.5);
+    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0.0, 0.0);
     game_ui_swap(rnd);
     iron_usleep(10000);
     //break;
