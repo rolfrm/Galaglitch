@@ -68,7 +68,7 @@ static void load_s1(s1 * s){
 
 static void load_s2(s2 * s){
   char * vert_code = read_file_to_string("resources/s2.vert");
-  char * frag_code = read_file_to_string("resources/s1.frag");
+  char * frag_code = read_file_to_string("resources/s2.frag");
   ASSERT(vert_code != NULL);
   ASSERT(frag_code != NULL);
   i32 prog = load_simple_shader(vert_code, strlen(vert_code), frag_code, strlen(frag_code));

@@ -4,7 +4,9 @@ layout(location = 0) in vec2 vert;
 
 uniform vec2 offset;
 uniform vec2 scale;
+out float d;
 void main(){
   vec2 v = vec2(sin(vert.x), cos(vert.x)) * vert.y;
+  d = vert.y;
   gl_Position = vec4((v + offset) * scale,0, 1);
 }
