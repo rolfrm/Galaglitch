@@ -1,7 +1,9 @@
 #version 410
 out vec4 color;
+uniform vec3 in_color;
+uniform float falloff;
 in float d;
+
 void main(){
-  float d2 = d / 200.0;
-  color = vec4(1.0 - d2);
+   color = vec4(in_color,clamp(1.0 - d, 0, 1));
 }

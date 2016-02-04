@@ -26,6 +26,8 @@ typedef struct{
   int vert_attr;
   int offset_uniform;
   int scale_uniform;
+  int falloff_uniform;
+  int color_uniform;
 }s2;
 
 typedef struct{
@@ -76,6 +78,8 @@ static void load_s2(s2 * s){
   s->vert_attr = 0;
   s->offset_uniform = glGetUniformLocation(s->program, "offset");
   s->scale_uniform = glGetUniformLocation(s->program, "scale");
+  s->falloff_uniform = glGetUniformLocation(s->program, "falloff");
+  s->color_uniform = glGetUniformLocation(s->program, "in_color");
   dealloc(vert_code);
   dealloc(frag_code);
 }
@@ -209,6 +213,7 @@ void game_ui_clear(game_ui * ui){
 
 void game_ui_swap(game_ui * ui){
   glfwSwapBuffers(ui->window);
+  glfwPollEvents();
 }
 
 void game_ui_draw_image(game_ui * ui, void *data, int width, int height){
@@ -216,12 +221,16 @@ void game_ui_draw_image(game_ui * ui, void *data, int width, int height){
 }
 
 void game_ui_draw_angular(game_ui * renderer, double * angle, double * distance, int cnt,
-			  float xpos, float ypos){
+			  float xpos, float ypos, float r,float g, float b, float falloff){
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE);
   load_angle_model(renderer, &renderer->angle_model, angle, distance, cnt);
   angle_model model = renderer->angle_model;
   glUseProgram(renderer->shader2.program);
-  glUniform2f(renderer->shader2.offset_uniform, -xpos, -ypos);
+  glUniform2f(renderer->shader2.offset_uniform, xpos, ypos);
   glUniform2f(renderer->shader2.scale_uniform, 1.0 / 200.0, 1.0 / 200.0);
+  glUniform3f(renderer->shader2.color_uniform, r, g, b);
+  glUniform1f(renderer->shader2.falloff_uniform, falloff);
   glBindBuffer(GL_ARRAY_BUFFER, model.vertex_buffer);
   glEnableClientState(GL_VERTEX_ARRAY);
   glVertexPointer(2, GL_FLOAT, 0, 0);
@@ -229,6 +238,7 @@ void game_ui_draw_angular(game_ui * renderer, double * angle, double * distance,
   glDrawArrays(GL_TRIANGLE_FAN, 0, model.cnt);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glDisableClientState(GL_VERTEX_ARRAY);
+  glDisable(GL_BLEND);
   assert_no_glerr();
 }
 
@@ -239,7 +249,7 @@ game_ui * game_ui_init(){
     glfwInited = true;
   }
   game_ui r = {0};
-  r.window = glfwCreateWindow(400, 400, "Galaglitch", NULL, NULL);
+  r.window = glfwCreateWindow(1000, 1000, "Galaglitch", NULL, NULL);
   r.hashstate = hashstate_new();
   glfwMakeContextCurrent(r.window);
   ASSERT(GLEW_OK == glewInit());
@@ -259,4 +269,21 @@ void game_ui_deinit(game_ui ** _ui){
 
 void game_ui_get_cursor_pos(game_ui * renderer, double * xpos, double * ypos){
   glfwGetCursorPos(renderer->window, xpos, ypos);
+}
+
+controller game_ui_get_controller(game_ui * ui){
+  int a = glfwGetKey(ui->window, GLFW_KEY_A);
+  int d = glfwGetKey(ui->window, GLFW_KEY_D);
+  int esc = glfwGetKey(ui->window, GLFW_KEY_ESCAPE);
+  int space = glfwGetKey(ui->window, GLFW_KEY_SPACE);
+  controller ctrl = {0};
+  if(a)
+    ctrl.turn_ratio += 1.0;
+  if(d)
+    ctrl.turn_ratio -= 1.0;
+  if(esc)
+    ctrl.exit_clicked = true;
+  if(space)
+    ctrl.shoot = true;
+  return ctrl;
 }

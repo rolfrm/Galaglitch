@@ -82,5 +82,6 @@ void game_ui_draw_image(game_ui * rnd, void *data, int width, int height);
 void game_ui_get_cursor_pos(game_ui * renderer, double * xpos, double * ypos);
 void game_ui_clear(game_ui *);
 void game_ui_draw_angular(game_ui * renderer, double * angle, double * distance, int cnt,
-			  float xpos, float ypos);
+			  float xpos, float ypos, float r, float g, float b, float falloff);
 void game_ui_swap(game_ui *);
+controller game_ui_get_controller(game_ui * ui);

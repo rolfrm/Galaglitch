@@ -173,10 +173,11 @@ float distance(float x, float y, void * distance_field){
 
   float d6 = -circle_distance(x, y, 0, 0, 500);
   
-  x = fmodf(x, 120) - 60;
-  y = fmodf(y, 120) - 60;
-  float d3 = circle_distance(x,y, 0, 0, 20);
+  x = fmodf(x, 200) - 100;
+  y = fmodf(y, 200) - 100;
+  float d3 = circle_distance(x,y, 0, 0, 10);
   return d3;
+  return MIN(d6, d3);
   float d4 = circle_distance(x,y, 100, 000, 20);
   float d5 = circle_distance(x,y, 200, 200, 20);
   float d2 = circle_distance(x,y, 000, 200, 20);
@@ -258,7 +259,7 @@ void trace_points_delete(trace_points * pts){
   memset(pts, 0, sizeof(trace_points));
 }
 
-void trace_distance_field_inner(image * img, trace_points * pts, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata){
+void trace_distance_field_inner(trace_points * pts, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata){
   float r_dist = sinf(angle_sec * 0.5);
   while(d < 500){
     float dx = sin(ang);
@@ -266,16 +267,6 @@ void trace_distance_field_inner(image * img, trace_points * pts, float start_x, 
     float xoff = dx * d + start_x;
     float yoff = dy * d + start_y;
     float d2 = f(xoff, yoff, userdata);
-    /*if(d2 < r_dist * d && angle_sec > 0.005){
-      float ratio[] = {-0.5, 0.5};
-      for(int i = 0; i < 2; i++){
-	float angle = ang + angle_sec * ratio[i]; 
-	trace_distance_field_inner(img, pts, start_x, start_y, angle, angle_sec * 0.5, d * 0.95, f, userdata);
-      }
-      return;
-      }*/
-    
-    //set_pixel_gray(img, (int)xoff, (int)yoff, 255);
     if(d2 < 0.0001){
       trace_points_add(pts, ang, d + d2);
       return;
@@ -285,40 +276,64 @@ void trace_distance_field_inner(image * img, trace_points * pts, float start_x, 
   trace_points_add(pts, ang, d);
 }
 
-void trace_distance_field(image * img, trace_points * pts, float start_x, float start_y,float (* f)(float x, float y, void * userdata), void * userdata){
+void trace_distance_field(trace_points * pts, float start_x, float start_y,float (* f)(float x, float y, void * userdata), void * userdata){
   float angle = 2 * 3.14;
   float d = f(start_x, start_y, userdata);
-  //if(d < 0) return;
-  int cnt = 1000;
+  if(d < 0) return;
+  int cnt = 500;
   float angle_sec = (angle / (float)cnt);
   for(int i = 0; i < cnt; i++)
-    trace_distance_field_inner(img, pts, start_x, start_y, angle_sec  * (float) i, angle_sec, d, f, userdata);
+    trace_distance_field_inner(pts, start_x, start_y, angle_sec  * (float) i, angle_sec, d, f, userdata);
+}
+
+void trace_distance_field2(trace_points * pts, float start_x, float start_y, float ang1, float ang2, int cnt, float (* f)(float x, float y, void * userdata), void * userdata){
+  float da = (ang2 - ang1) / cnt;
+  float d = f(start_x, start_y, userdata);
+  trace_points_add(pts, ang1, 0);
+  for(float a = ang1; a < ang2; a += da)
+    trace_distance_field_inner(pts, start_x, start_y, a, 0, d, f, userdata);
+  trace_points_add(pts, ang2, 0);
 }
 
 bool test_distance_field(){
   game_ui * rnd = game_ui_init();
   ASSERT(rnd != NULL);
-  image img = {400, 400, alloc0(400 * 400 * 3)};
   trace_points pts = {0};
+  double xpos = 0.0, ypos = 0.0;
+  float speed = 1.1;
+  float dir = 0.0;
+  float turn_speed = 0.1;
+
   for(int i = 0; i < 10000; i++){
+    logd("Pos %f %f\n", xpos, ypos);
     trace_points_clear(&pts);
-    double phase = i * 0.01;
-    double xpos, ypos;
-    xpos = sin(phase) * 50 + 200;
-    ypos = cos(phase) * 50 + 200;
-    game_ui_get_cursor_pos(rnd, &xpos, &ypos);
-    //memset(img.data, 0, 400 * 400 * 3);
-    u64 t1 = timestamp();
-    //render_distance_field(&img, distance, NULL);
-    trace_distance_field(&img, &pts, (int)xpos, 400 -(int)ypos, distance, NULL);
-    logd("Trace points: %i\n", pts.cnt);
-    //iron_usleep(100000);
-    u64 t2 = timestamp();
-    u64 dt = t2 - t1;
-    logd("Render time: %i us\n", dt);
+    controller ctrl = game_ui_get_controller(rnd);
+    if(ctrl.shoot){
+      speed *= 1.01;
+    }
+    dir += ctrl.turn_ratio * turn_speed;
+    xpos += sin(dir) * speed;
+    ypos += cos(dir) * speed;
+    
     game_ui_clear(rnd);
-    //game_ui_draw_image(rnd, img.data, img.width, img.height);
-    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0.0, 0.0);
+    trace_points_clear(&pts);
+    trace_distance_field(&pts, xpos, ypos, distance, NULL);
+    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0, 0, 0.2, 0.2, 0.2, 0.005);
+
+    trace_points_clear(&pts);
+    trace_distance_field2(&pts, xpos, ypos, dir - 0.2, dir + 0.2, 20, distance, NULL);
+    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0, 0, 0.6, 0.6, 0.2, 0.005);
+    
+    
+    trace_points_clear(&pts);
+    trace_distance_field(&pts, 100, 100, distance, NULL);
+    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 100 - xpos, 100 - ypos, 1.0, 0.6, 0.5, 0.01);
+
+    
+    trace_points_clear(&pts);
+    trace_distance_field(&pts, 100, 200, distance, NULL);
+    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 100 - xpos , 200 - ypos, 1.0, 0.7, 0.3, 0.01);
+    
     game_ui_swap(rnd);
     iron_usleep(10000);
     //break;
