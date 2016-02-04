@@ -249,7 +249,7 @@ game_ui * game_ui_init(){
     glfwInited = true;
   }
   game_ui r = {0};
-  r.window = glfwCreateWindow(1000, 1000, "Galaglitch", NULL, NULL);
+  r.window = glfwCreateWindow(400, 400, "Galaglitch", NULL, NULL);
   r.hashstate = hashstate_new();
   glfwMakeContextCurrent(r.window);
   ASSERT(GLEW_OK == glewInit());

@@ -173,9 +173,9 @@ float distance(float x, float y, void * distance_field){
 
   float d6 = -circle_distance(x, y, 0, 0, 500);
   
-  x = fmodf(x, 200) - 100;
-  y = fmodf(y, 200) - 100;
-  float d3 = circle_distance(x,y, 0, 0, 10);
+  x = fmodf(x, 80) - 40;
+  y = fmodf(y, 80) - 40;
+  float d3 = circle_distance(x,y, 0, 0, 5);
   return d3;
   return MIN(d6, d3);
   float d4 = circle_distance(x,y, 100, 000, 20);
@@ -280,7 +280,7 @@ void trace_distance_field(trace_points * pts, float start_x, float start_y,float
   float angle = 2 * 3.14;
   float d = f(start_x, start_y, userdata);
   if(d < 0) return;
-  int cnt = 500;
+  int cnt = 1000;
   float angle_sec = (angle / (float)cnt);
   for(int i = 0; i < cnt; i++)
     trace_distance_field_inner(pts, start_x, start_y, angle_sec  * (float) i, angle_sec, d, f, userdata);

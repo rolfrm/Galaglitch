@@ -8,13 +8,9 @@ out float d;
 uniform float falloff;
 void main(){
   // if falloff is 0.1, the max distance is 10
-  float d2 = min(1.0 / falloff , vert.y);	
+  //float d2 = min(1.0 / falloff , vert.y);	
   
-  vec2 v = vec2(sin(vert.x), cos(vert.x)) * d2;
-  if(vert.y < 0.001)
-    d = 0;
-    else
-    d =  d2 / 100  ;
-
+  vec2 v = vec2(sin(vert.x), cos(vert.x)) * vert.y;
+  d= vert.y * falloff;
   gl_Position = vec4((v + offset) * scale,0, 1);
 }
