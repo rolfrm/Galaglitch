@@ -1,14 +1,14 @@
 
 typedef struct { 
   int * type;
-  size_t * vertex;
+  int * vertex;
   float * x;
   float * y;
   float * dx;
   float * dy;
   float * a;
-  size_t * model;
-  size_t cnt;
+  int * model;
+  int cnt;
 
 }game_entities;
 

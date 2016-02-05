@@ -34,22 +34,22 @@ void _error(const char * file, int line, const char * msg, ...){
 
 // mock
 controller get_controller(){
-  return (controller){0,0};
+  return (controller){0};
 }
 
 void print_models(game_models * models){
   vertex_list * verts = &models->verts;
   face_list * faces = &models->faces;
-  for(size_t i = 0; i < verts->cnt; i++){
+  for(int i = 0; i < verts->cnt; i++){
     logd("Vertex %i: %f %f %f\n", i, verts->x[i], verts->y[i], verts->z[i]);
   }
-  for(size_t i = 0; i < faces->cnt; i++){
+  for(int i = 0; i < faces->cnt; i++){
     logd("Face %i: %i %i %i\n", i, faces->v1[i], faces->v2[i], faces->v3[i]);
   }
 }
 
 void print_entities(game_entities * entities){
-  for(size_t i = 0; i < entities->cnt; i++){
+  for(int i = 0; i < entities->cnt; i++){
     logd("Entity %i: %i %i %f %f %f %f %f %i\n", i, entities->type[i], entities->vertex[i],
 	 entities->x[i], entities->y[i], entities->dx[i], entities->dy[i], entities->a[i],
 	 entities->model[i]);
@@ -171,7 +171,7 @@ float _mod(float v, int div){
 }
 
 float distance(float x, float y, void * distance_field){
-
+  UNUSED(distance_field);
   float d6 = -circle_distance(x, y, 0, 0, 500);
   
   x = fmodf(x, 80) - 40;
@@ -260,8 +260,7 @@ void trace_points_delete(trace_points * pts){
   memset(pts, 0, sizeof(trace_points));
 }
 
-void trace_distance_field_inner2(trace_points * pts, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata, float radius_limit){
-  float r_dist = sinf(angle_sec * 0.5);
+void trace_distance_field_inner2(trace_points * pts, float start_x, float start_y, float ang, float d, float (* f)(float x, float y, void * userdata), void * userdata, float radius_limit){
   while(d < 500){
     float dx = sin(ang);
     float dy = cos(ang);
@@ -277,19 +276,18 @@ void trace_distance_field_inner2(trace_points * pts, float start_x, float start_
   trace_points_add(pts, ang, d);
 }
 
-void trace_distance_field_inner(trace_points * pts, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata){
-  return trace_distance_field_inner2(pts, start_x, start_y, ang, angle_sec, d, f, userdata, 0.0001);
+void trace_distance_field_inner(trace_points * pts, float start_x, float start_y, float ang, float d, float (* f)(float x, float y, void * userdata), void * userdata){
+  return trace_distance_field_inner2(pts, start_x, start_y, ang, d, f, userdata, 0.0001);
 }
 
 void trace_distance_field(trace_points * pts, float start_x, float start_y,float (* f)(float x, float y, void * userdata), void * userdata){
-  float angle = 2 * 3.14;
   float d = f(start_x, start_y, userdata);
   if(d < 0) return;
   int cnt = 1000;
-  float angle_sec = (angle / (float)cnt);
+  float angle_sec = 3.14 * 2.0 / 1000.0;
   for(int i = 0; i < cnt; i++)
     trace_distance_field_inner(pts, start_x, start_y,
-			       angle_sec  * (float) i, angle_sec, d, f, userdata);
+			       angle_sec  * (float) i, d, f, userdata);
 }
 
 void trace_distance_field2(trace_points * pts, float start_x, float start_y, float ang1,
@@ -299,7 +297,7 @@ void trace_distance_field2(trace_points * pts, float start_x, float start_y, flo
   float d = f(start_x, start_y, userdata);
   trace_points_add(pts, ang1, 0);
   for(float a = ang1; a < ang2; a += da)
-    trace_distance_field_inner(pts, start_x, start_y, a, 0, d, f, userdata);
+    trace_distance_field_inner(pts, start_x, start_y, a, d, f, userdata);
   trace_points_add(pts, ang2, 0);
 }
 
@@ -319,10 +317,10 @@ collision_data circle_collision_detection(vec2 pos, float radius, float dir,
       float ang = i * M_PI / 2.0;
       float x = sin(ang) * radius;
       float y = cos(ang) * radius;
-      trace_distance_field_inner2(&pts, pos.x + x, pos.y + y, ang, 0, d, f, userdata, radius);
+      trace_distance_field_inner2(&pts, pos.x + x, pos.y + y, ang, d, f, userdata, radius);
     }
   }else{
-    trace_distance_field_inner2(&pts, pos.x, pos.y, dir, 0, d, f, userdata, radius);
+    trace_distance_field_inner2(&pts, pos.x, pos.y, dir, d, f, userdata, radius);
   }
   return cd;
 }
@@ -353,7 +351,7 @@ bool test_distance_field(){
     game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0, 0, 0.2, 0.2, 0.2, 0.005);
 
     trace_points_clear(&pts);
-    trace_distance_field2(&pts, xpos, ypos, dir - 0.2, dir + 0.2, 20, distance, NULL);
+    trace_distance_field2(&pts, xpos, ypos, dir - 0.2, dir + 0.2, 100, distance, NULL);
     game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0, 0, 0.6, 0.6, 0.2, 0.005);
     
     

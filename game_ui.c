@@ -6,6 +6,7 @@
 #include <iron/mem.h>
 #include <iron/fileio.h>
 #include <iron/log.h>
+#include <iron/utils.h>
 #include "game.h"
 #include "hash.h"
 #include "shader_utils.h"
@@ -22,7 +23,7 @@ typedef struct {
 }s1;
 
 typedef struct{
-  int program;
+  u32 program;
   int vert_attr;
   int offset_uniform;
   int scale_uniform;
@@ -31,15 +32,15 @@ typedef struct{
 }s2;
 
 typedef struct{
-  int vertex_buffer;
+  u32 vertex_buffer;
   int vertex_cnt;
-  int face_buffer;
+  u32 face_buffer;
   int face_cnt;
   u64 hash;
 }ui_model;
 
 typedef struct{
-  int vertex_buffer;
+  u32 vertex_buffer;
   int cnt;
   int capacity;
   u64 hash;
@@ -139,6 +140,7 @@ static void load_model(game_ui * ui, ui_model * model, vertex_list verts, face_l
 }
 
 static void load_angle_model(game_ui * ui, angle_model * model, float * angles, float * distances, int cnt){
+  UNUSED(ui);
   int cnt2 = cnt + 3;
   if(model->vertex_buffer == 0){
     glGenBuffers(1, &model->vertex_buffer);
@@ -217,6 +219,7 @@ void game_ui_swap(game_ui * ui){
 }
 
 void game_ui_draw_image(game_ui * ui, void *data, int width, int height){
+  UNUSED(ui);
   glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
 }
 
@@ -249,10 +252,16 @@ game_ui * game_ui_init(){
     glfwInited = true;
   }
   game_ui r = {0};
-  r.window = glfwCreateWindow(400, 400, "Galaglitch", NULL, NULL);
+  //int * monitor = glfwGetPrimaryMonitor();
+  //const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+  glfwWindowHint(GLFW_RED_BITS, 12);
+  glfwWindowHint(GLFW_GREEN_BITS, 12);
+  glfwWindowHint(GLFW_BLUE_BITS, 12);
+  r.window = glfwCreateWindow(1000, 1000, "Galaglitch", NULL, NULL);
   r.hashstate = hashstate_new();
   glfwMakeContextCurrent(r.window);
   ASSERT(GLEW_OK == glewInit());
+  glEnable(GL_DITHER);
   load_s1(&r.shader1);
   load_s2(&r.shader2);
   return iron_clone(&r, sizeof(r));
