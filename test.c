@@ -11,6 +11,7 @@
 #include <iron/array.h>
 #include <iron/time.h>
 #include <iron/utils.h>
+#include <iron/linmath.h>
 #include "game.h"
 
 #include <iron/log.h>
@@ -259,7 +260,7 @@ void trace_points_delete(trace_points * pts){
   memset(pts, 0, sizeof(trace_points));
 }
 
-void trace_distance_field_inner(trace_points * pts, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata){
+void trace_distance_field_inner2(trace_points * pts, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata, float radius_limit){
   float r_dist = sinf(angle_sec * 0.5);
   while(d < 500){
     float dx = sin(ang);
@@ -267,13 +268,17 @@ void trace_distance_field_inner(trace_points * pts, float start_x, float start_y
     float xoff = dx * d + start_x;
     float yoff = dy * d + start_y;
     float d2 = f(xoff, yoff, userdata);
-    if(d2 < 0.0001){
+    if(d2 < radius_limit){
       trace_points_add(pts, ang, d + d2);
       return;
     }
     d += d2;
   }
   trace_points_add(pts, ang, d);
+}
+
+void trace_distance_field_inner(trace_points * pts, float start_x, float start_y, float ang, float angle_sec, float d, float (* f)(float x, float y, void * userdata), void * userdata){
+  return trace_distance_field_inner2(pts, start_x, start_y, ang, angle_sec, d, f, userdata, 0.0001);
 }
 
 void trace_distance_field(trace_points * pts, float start_x, float start_y,float (* f)(float x, float y, void * userdata), void * userdata){
@@ -283,16 +288,43 @@ void trace_distance_field(trace_points * pts, float start_x, float start_y,float
   int cnt = 1000;
   float angle_sec = (angle / (float)cnt);
   for(int i = 0; i < cnt; i++)
-    trace_distance_field_inner(pts, start_x, start_y, angle_sec  * (float) i, angle_sec, d, f, userdata);
+    trace_distance_field_inner(pts, start_x, start_y,
+			       angle_sec  * (float) i, angle_sec, d, f, userdata);
 }
 
-void trace_distance_field2(trace_points * pts, float start_x, float start_y, float ang1, float ang2, int cnt, float (* f)(float x, float y, void * userdata), void * userdata){
+void trace_distance_field2(trace_points * pts, float start_x, float start_y, float ang1,
+			   float ang2, int cnt, float (* f)(float x, float y, void * userdata),
+			   void * userdata){
   float da = (ang2 - ang1) / cnt;
   float d = f(start_x, start_y, userdata);
   trace_points_add(pts, ang1, 0);
   for(float a = ang1; a < ang2; a += da)
     trace_distance_field_inner(pts, start_x, start_y, a, 0, d, f, userdata);
   trace_points_add(pts, ang2, 0);
+}
+
+typedef struct{
+  bool does_collide;
+  vec2 collision_vector;
+}collision_data;
+
+collision_data circle_collision_detection(vec2 pos, float radius, float dir,
+					  float (* f)(float x, float y, void * userdata), void * userdata){
+  collision_data cd = {0};
+  trace_points pts = {0};
+  float d = f(pos.x, pos.y, userdata);
+  
+  if(radius < d){
+    for(int i = 0; i < 4; i++){
+      float ang = i * M_PI / 2.0;
+      float x = sin(ang) * radius;
+      float y = cos(ang) * radius;
+      trace_distance_field_inner2(&pts, pos.x + x, pos.y + y, ang, 0, d, f, userdata, radius);
+    }
+  }else{
+    trace_distance_field_inner2(&pts, pos.x, pos.y, dir, 0, d, f, userdata, radius);
+  }
+  return cd;
 }
 
 bool test_distance_field(){

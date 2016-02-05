@@ -220,7 +220,7 @@ void game_ui_draw_image(game_ui * ui, void *data, int width, int height){
   glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
 }
 
-void game_ui_draw_angular(game_ui * renderer, double * angle, double * distance, int cnt,
+void game_ui_draw_angular(game_ui * renderer, float * angle, float * distance, int cnt,
 			  float xpos, float ypos, float r,float g, float b, float falloff){
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE);
