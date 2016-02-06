@@ -329,30 +329,36 @@ bool test_distance_field(){
   game_ui * rnd = game_ui_init();
   ASSERT(rnd != NULL);
   trace_points pts = {0};
-  double xpos = 0.0, ypos = 0.0;
-  float speed = 1.1;
-  float dir = 0.0;
+  double xpos = 100.0, ypos = 242.5;
+  float speed = 0;
+  float dir = 3.49;
   float turn_speed = 0.1;
 
   for(int i = 0; i < 10000; i++){
-    logd("Pos %f %f\n", xpos, ypos);
+    logd("Pos %f %f %f\n", xpos, ypos, dir);
     trace_points_clear(&pts);
     controller ctrl = game_ui_get_controller(rnd);
     if(ctrl.shoot){
-      speed *= 1.01;
+      if(speed > 0)
+	speed = 0;
+      else
+	speed = 1;
     }
     dir += ctrl.turn_ratio * turn_speed;
-    xpos += sin(dir) * speed;
-    ypos += cos(dir) * speed;
+    vec2 dirvec = vec2mk(sin(dir), cos(dir));
+    xpos += dirvec.x * speed;
+    ypos += dirvec.y * speed;
     
     game_ui_clear(rnd);
     trace_points_clear(&pts);
     trace_distance_field(&pts, xpos, ypos, distance, NULL);
     game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0, 0, 0.2, 0.2, 0.2, 0.005);
 
+    
     trace_points_clear(&pts);
-    trace_distance_field2(&pts, xpos, ypos, dir - 0.2, dir + 0.2, 100, distance, NULL);
-    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0, 0, 0.6, 0.6, 0.2, 0.005);
+    trace_distance_field2(&pts, xpos + dirvec.x, ypos + dirvec.y, dir - 0.2, dir + 0.2, 100, distance, NULL);
+    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0 + dirvec.x, 0 + dirvec.y, 0.6, 0.6, 0.2, 0.005);
+
     
     
     trace_points_clear(&pts);

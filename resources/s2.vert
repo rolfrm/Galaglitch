@@ -1,10 +1,11 @@
 #version 410
+precision highp float;
 // x: angle, y: distance
 layout(location = 0) in vec2 vert;
 
 uniform vec2 offset;
 uniform vec2 scale;
-out float d;
+out highp float d;
 uniform float falloff;
 void main(){
   // if falloff is 0.1, the max distance is 10

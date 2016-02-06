@@ -261,7 +261,7 @@ game_ui * game_ui_init(){
   r.hashstate = hashstate_new();
   glfwMakeContextCurrent(r.window);
   ASSERT(GLEW_OK == glewInit());
-  glEnable(GL_DITHER);
+  //glDisable(GL_DITHER);
   load_s1(&r.shader1);
   load_s2(&r.shader2);
   return iron_clone(&r, sizeof(r));
