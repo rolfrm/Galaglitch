@@ -16,7 +16,7 @@ const float pattern[64] = float[64](
 
 void main(){
    float offset = mod(floor(gl_FragCoord.x),8) + mod(floor(gl_FragCoord.y), 8) * 8;
-   float alpha = clamp(1.0 - d, 0, 1);
+   float alpha = 1000 / (1000 + 20 * d + 0.2 * pow(d, 2));
    
    float dither = (pattern[int(offset)] / 64 - 0.5) / 64.0 / length(in_color);
    //dither = 0;

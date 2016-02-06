@@ -322,21 +322,20 @@ void test_compute_shader(game_ui * ui){
   glUniform1i(glGetUniformLocation(prog, "destTex"), 0);
 
 
-  int pointcnt = 1024/* * 8 * 8*/;
-  u32 vbo[5];
-  glGenBuffers(5, vbo);
-  for(u32 i = 0; i < 1; i++){
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
-    glBufferData(GL_ARRAY_BUFFER, 2 * (1 + pointcnt) * sizeof(float), NULL, GL_STREAM_DRAW);
+  int pointcnt = 1024 * 8; //* 8;
+  u32 vbo;
+  glGenBuffers(1, &vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glBufferData(GL_ARRAY_BUFFER, 2 * (1 + pointcnt) * sizeof(float), NULL, GL_STREAM_DRAW);
 
-    float * buffer = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
-    buffer[0] = 0;
-    buffer[1] = 0;
-    glUnmapBuffer(GL_ARRAY_BUFFER);
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo[i]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vbo[i]);
-  }
+  float * buffer = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+  buffer[0] = 0;
+  buffer[1] = 0;
+  glUnmapBuffer(GL_ARRAY_BUFFER);
+  
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vbo);
+  
   int t = 0;
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -344,36 +343,32 @@ void test_compute_shader(game_ui * ui){
   glVertexPointer(2, GL_FLOAT, 0, 0);
   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
-
-  
   while(true){
     u64 t1 = timestamp();
     glClear(GL_COLOR_BUFFER_BIT);
-    
-    float xs[] = {0, 300, 400 ,200 ,500};
-    float ys[] = {0, 300, 400 ,200 ,500};
-    for(int i = 0; i < 5; i++){
+    glUseProgram(prog);
+    glUniform1i(glGetUniformLocation(prog, "points"), pointcnt);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glVertexPointer(2, GL_FLOAT, 0, 0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    t += 10;
+    //int position = t += 10;
+    for(int i = -10; i < 10; i++){
 
-      float x = xs[i];
-      float y = ys[i];
-      if(i == 0){
-	y = t++;
-      }
+      int item = t / 250;
+      float x = ((i + item) % 2) * 500;
+      float y = ((i + item) / 2) * 500;
+
       glUseProgram(prog);
-      glUniform1i(glGetUniformLocation(prog, "points"), pointcnt);
-      glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo[0]);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vbo[0]);
-      glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-      glVertexPointer(2, GL_FLOAT, 0, 0);
-      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-      
-      glUniform2f(glGetUniformLocation(prog, "pos"), x, y );
+      glUniform2f(glGetUniformLocation(prog, "pos"), x, y);
       glDispatchCompute(pointcnt/16, 1, 1);
       glUseProgram(ui->shader2.program);
-      glUniform2f(ui->shader2.offset_uniform,  x, y);
+      glUniform2f(ui->shader2.offset_uniform,  x, y - t);
       glUniform2f(ui->shader2.scale_uniform, 1.0 / 800.0, 1.0 / 800.0);
-      glUniform3f(ui->shader2.color_uniform, 0.1, 0.1, 0.1);
-      glUniform1f(ui->shader2.falloff_uniform, 0.001);
+      glUniform3f(ui->shader2.color_uniform, 0.5, 0.5, 0.9);
+      glUniform1f(ui->shader2.falloff_uniform, 0.005);
       glDrawArrays(GL_TRIANGLE_FAN, 0, pointcnt + 1);
 
     }

@@ -12,6 +12,6 @@ void main(){
   //float d2 = min(1.0 / falloff , vert.y);	
   
   vec2 v = vec2(sin(vert.x), cos(vert.x)) * vert.y;
-  d= vert.y * falloff;
+  d= vert.y;
   gl_Position = vec4((v + offset) * scale,0, 1);
 }

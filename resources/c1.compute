@@ -14,31 +14,33 @@ float circle_distance(vec2 p, vec2 c, float r){
 }
 
 float distancefcn(vec2 p){
-  float d1 = circle_distance(p, vec2(150,0), 100);
-  float d2 = circle_distance(p, vec2(-150,200), 50);
-  return min(d1, d2);
+  p.y = mod(p.y, 2000);
+  //float d1 = circle_distance(p, vec2(150,0), 100);
+  //float d2 = circle_distance(p, vec2(-150,200), 50);
+  //float d3 = circle_distance(p, vec2(-0,300), 20);
+  //float d4 = circle_distance(p, vec2(-320,320), 20);
+  float d1 = circle_distance(p, vec2(150,500), 100);
+  return d1; //min(d4, min(d3, min(d1, d2)));
 }
 
 float trace_distance(vec2 p, vec2 direction){
   float distance = 0.0;
-  while(distance < 400){
+  while(distance < 500){
     float d = distancefcn(p);
     p = p + direction * d;
     distance += d;
-    if(d < 0.001)
+    if(d < 1)
       return distance;
   }
-  return 400;
+  return 500;
 }
 
 
 void main(){
-  memoryBarrierShared();
   int index = int(gl_GlobalInvocationID.x);
   float angle = 2.0 * M_PI * float(index) / points;
   data[index * 2 + 2] = angle;
   data[index * 2 + 1 + 2] = trace_distance(pos, vec2(sin(angle),cos(angle)));
-  barrier();
 }
 
 
