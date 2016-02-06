@@ -1,0 +1,62 @@
+#version 430
+
+uniform int points;
+uniform vec2 pos;
+layout(std430, binding = 0) buffer dest
+{
+  float data[];
+};
+layout(local_size_x = 16, local_size_y = 1) in;
+#define M_PI 3.1415926535897932384626433832795
+
+float circle_distance(vec2 p, vec2 c, float r){
+  return length(c - p) - r;
+}
+
+float distancefcn(vec2 p){
+  float d1 = circle_distance(p, vec2(150,0), 100);
+  float d2 = circle_distance(p, vec2(-150,200), 50);
+  return min(d1, d2);
+}
+
+float trace_distance(vec2 p, vec2 direction){
+  float distance = 0.0;
+  while(distance < 400){
+    float d = distancefcn(p);
+    p = p + direction * d;
+    distance += d;
+    if(d < 0.001)
+      return distance;
+  }
+  return 400;
+}
+
+
+void main(){
+  memoryBarrierShared();
+  int index = int(gl_GlobalInvocationID.x);
+  float angle = 2.0 * M_PI * float(index) / points;
+  data[index * 2 + 2] = angle;
+  data[index * 2 + 1 + 2] = trace_distance(pos, vec2(sin(angle),cos(angle)));
+  barrier();
+}
+
+
+
+/*uniform float roll;
+uniform int points;
+layout(std430, binding = 0) buffer dest
+{
+  float data[];
+};
+layout(local_size_x = 16, local_size_y = 1) in;
+void main(){
+  ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
+  float localCoef = length(vec2(ivec2(gl_LocalInvocationID.xy) - 8) /8.0);
+  float globalCoef = sin(float(gl_WorkGroupID.x + gl_WorkGroupID.y) * 0.1 + roll) * 0.5;
+  data[gl_GlobalInvocationID.x * 2 + 1] = (globalCoef + localCoef) * 100;
+  data[gl_GlobalInvocationID.x * 2] = storePos.x * 0.05 + roll * 0.1;
+
+}
+
+*/

@@ -365,6 +365,7 @@ collision_data circle_collision_detection(vec2 pos, float radius, float dir,
 
 bool test_distance_field(){
   game_ui * rnd = game_ui_init();
+  test_compute_shader(rnd);
   ASSERT(rnd != NULL);
   trace_points pts = {0};
   double xpos = 100000.0, ypos = 52402.5;
@@ -428,6 +429,7 @@ bool test_line_segment(){
 }
 
 int main(){
+  
   TEST(test_line_segment);
   TEST(test_main_loop);
   //TEST(test_graphics);

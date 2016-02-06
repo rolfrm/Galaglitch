@@ -85,3 +85,4 @@ void game_ui_draw_angular(game_ui * renderer, float * angle, float * distance, i
 			  float xpos, float ypos, float r, float g, float b, float falloff);
 void game_ui_swap(game_ui *);
 controller game_ui_get_controller(game_ui * ui);
+void test_compute_shader(game_ui * ui);
