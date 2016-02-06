@@ -165,36 +165,74 @@ float circle_distance(float x, float y, float sx, float sy, float r){
   return sqrtf(x * x + y * y ) - r ;
 }
 
+float line_segment_distance(vec2 pt, vec2 p1, vec2 p2){
+  
+  vec2 pt2 = vec2_sub(pt, p1);
+  vec2 pv = vec2_sub(p2, p1);
+  float pvl = vec2_len(pv);
+  vec2 pvn = vec2_scale(pv, 1.0 / pvl);
+  float scalar = vec2_mul_inner(pt2, pvn);
+  if(scalar < 0){
+    return circle_distance(pt.x, pt.y, p1.x, p1.y, 0);
+  }else if(scalar > pvl){
+    return circle_distance(pt.x, pt.y, p2.x, p2.y, 0);
+    }
+  vec2 p3 = vec2_scale(pvn, scalar);
+  return vec2_len(vec2_sub(pt, p3));
+  
+}
+
+
 float _mod(float v, int div){
   int rest = v / div;
   return v - rest * div;
 }
 
+typedef struct{
+  float t;
+}distance_field_data;
+
 float distance(float x, float y, void * distance_field){
-  UNUSED(distance_field);
-  float d6 = -circle_distance(x, y, 0, 0, 500);
-  
-  x = fmodf(x, 80) - 40;
-  y = fmodf(y, 80) - 40;
-  float d3 = circle_distance(x,y, 0, 0, 5);
-  return d3;
-  return MIN(d6, d3);
-  float d4 = circle_distance(x,y, 100, 000, 20);
-  float d5 = circle_distance(x,y, 200, 200, 20);
-  float d2 = circle_distance(x,y, 000, 200, 20);
-  return MIN(d2, MIN(d6, MIN(d5, MIN(d4, d3))));
-  
-  
-  //
-  
-  //return d4;//MIN(d3, d4);//return MIN(d4, d3);
-  //float d4 = circle_distance(x, y, 180, 180, 60);
-  //if(d4 > 1) return MIN(d3, d4);
-  
-  
-  //float d2 = circle_distance(x, y, 200, 190, 10);
-  //float d5 = circle_distance(x, y, 160, 160, 10);
-  //return MIN(d3, MIN(d5, MIN(d1,d2)));
+  distance_field_data * data = distance_field;
+  float l = 0.0;
+
+  {
+    int region = x / 100;
+    int region2 = y / 100;
+    region = region % 2;
+    region2 = region2 % 4;
+    if(region == 1 && region2 == 1)
+      return 0;
+  }
+  {
+    float _x = fmodf(x + data->t * 30.0, 200) - 100;
+    float _y = fmodf(y + data->t * 30.0, 200) - 100;
+    l = line_segment_distance(vec2mk(_x,_y), vec2mk(0,0), vec2mk(50,50));
+    l -= 4;
+    l = l;
+  }
+  //float l2 = 0;
+  /*{
+    float _x = fmodf(x, 200) - 100;
+    float _y = fmodf(y, 200) - 100;
+    l2 = line_segment_distance(vec2mk(_x,_y), vec2mk(0,50), vec2mk(50,0));
+    l2 -= 4;
+    l2 = l;
+    }*/
+  float d3;
+  {
+    float _x = fmodf(x , 80) - 40;
+    float _y = fmodf(y, 80) - 40;
+    d3 = circle_distance(_x,_y, 0, 0, 5);
+  }
+
+  float d4;
+  {
+    float _x = fmodf(x + data->t * 5, 1600) - 800;
+    float _y = fmodf(y, 1600) - 800;
+    d4 = MAX(circle_distance(_x,_y, 0, 0, 100), circle_distance(_x,_y, 0, 90, 100));
+  }
+  return MIN(d4, MIN(l, d3));
 }
 
 typedef struct {
@@ -260,7 +298,7 @@ void trace_points_delete(trace_points * pts){
   memset(pts, 0, sizeof(trace_points));
 }
 
-void trace_distance_field_inner2(trace_points * pts, float start_x, float start_y, float ang, float d, float (* f)(float x, float y, void * userdata), void * userdata, float radius_limit){
+void trace_distance_field_inner2(trace_points * pts, float start_x, float start_y, float ang, double d, float (* f)(float x, float y, void * userdata), void * userdata, float radius_limit){
   while(d < 500){
     float dx = sin(ang);
     float dy = cos(ang);
@@ -268,10 +306,10 @@ void trace_distance_field_inner2(trace_points * pts, float start_x, float start_
     float yoff = dy * d + start_y;
     float d2 = f(xoff, yoff, userdata);
     if(d2 < radius_limit){
-      trace_points_add(pts, ang, d + d2);
+      trace_points_add(pts, ang, d);
       return;
     }
-    d += d2;
+    d += d2 * 0.90;
   }
   trace_points_add(pts, ang, d);
 }
@@ -284,7 +322,7 @@ void trace_distance_field(trace_points * pts, float start_x, float start_y,float
   float d = f(start_x, start_y, userdata);
   if(d < 0) return;
   int cnt = 1000;
-  float angle_sec = 3.14 * 2.0 / 1000.0;
+  float angle_sec = 3.14 * 2.0 / cnt;
   for(int i = 0; i < cnt; i++)
     trace_distance_field_inner(pts, start_x, start_y,
 			       angle_sec  * (float) i, d, f, userdata);
@@ -329,46 +367,46 @@ bool test_distance_field(){
   game_ui * rnd = game_ui_init();
   ASSERT(rnd != NULL);
   trace_points pts = {0};
-  double xpos = 100.0, ypos = 242.5;
+  double xpos = 100000.0, ypos = 52402.5;
   float speed = 0;
   float dir = 3.49;
   float turn_speed = 0.1;
-
+  distance_field_data data;
   for(int i = 0; i < 10000; i++){
+    data.t = (float)i * 0.1;
     logd("Pos %f %f %f\n", xpos, ypos, dir);
     trace_points_clear(&pts);
     controller ctrl = game_ui_get_controller(rnd);
     if(ctrl.shoot){
-      if(speed > 0)
-	speed = 0;
-      else
 	speed = 1;
-    }
+    }else speed = 0;
     dir += ctrl.turn_ratio * turn_speed;
     vec2 dirvec = vec2mk(sin(dir), cos(dir));
     xpos += dirvec.x * speed;
     ypos += dirvec.y * speed;
-    
     game_ui_clear(rnd);
     trace_points_clear(&pts);
-    trace_distance_field(&pts, xpos, ypos, distance, NULL);
+    u64 t1 = timestamp();
+    trace_distance_field(&pts, xpos, ypos, distance, &data);
+    u64 t2 = timestamp();
+    logd("trace distance: %fms\n", (float)(t2 - t1) / 1000.0);
     game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0, 0, 0.2, 0.2, 0.2, 0.005);
 
     
     trace_points_clear(&pts);
-    trace_distance_field2(&pts, xpos + dirvec.x, ypos + dirvec.y, dir - 0.2, dir + 0.2, 100, distance, NULL);
+    trace_distance_field2(&pts, xpos + dirvec.x, ypos + dirvec.y, dir - 0.2, dir + 0.2, 100, distance, &data);
     game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 0 + dirvec.x, 0 + dirvec.y, 0.6, 0.6, 0.2, 0.005);
 
     
     
-    trace_points_clear(&pts);
+    /*trace_points_clear(&pts);
     trace_distance_field(&pts, 100, 100, distance, NULL);
     game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 100 - xpos, 100 - ypos, 1.0, 0.6, 0.5, 0.01);
 
     
     trace_points_clear(&pts);
     trace_distance_field(&pts, 100, 200, distance, NULL);
-    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 100 - xpos , 200 - ypos, 1.0, 0.7, 0.3, 0.01);
+    game_ui_draw_angular(rnd, pts.angle, pts.distance, pts.cnt, 100 - xpos , 200 - ypos, 1.0, 0.7, 0.3, 0.01);*/
     
     game_ui_swap(rnd);
     iron_usleep(10000);
@@ -379,8 +417,18 @@ bool test_distance_field(){
   return TEST_SUCCESS;
 }
 
+bool test_line_segment(){
+  vec2 a = vec2mk(0,0);
+  vec2 b = vec2mk(0,100);
+  vec2 c = vec2mk(1, 50);
+  float d = line_segment_distance(c, a,b);
+  logd("Distance: %f\n", d);
+  TEST_ASSERT(d < 1.5 && d > 0.5);
+  return TEST_SUCCESS;
+}
+
 int main(){
-  
+  TEST(test_line_segment);
   TEST(test_main_loop);
   //TEST(test_graphics);
   TEST(test_distance_field);
