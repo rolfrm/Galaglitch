@@ -9,5 +9,5 @@ I added dithering to combat some banding artifacts. I could probably improve it 
 
 ![Dithering](dithering.png)
 
-It turns out im no good at coming up with games. This is about being the little circle and taking over the big ones.
+I decided to rewrite the distance field tracing in a GPU algorithm. To do this I created a compute shader and copied the code from the c version. This now runs remarkably faster, but the shader used is exactly the same. This is easy as a compute shader allows me to directly write into a vertex buffer. It turns out im no good at coming up with games. This is about being the little circle and taking over the big ones.
 ![Game](game.png)
