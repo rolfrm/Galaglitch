@@ -55,6 +55,7 @@ typedef struct{
 
 typedef struct{
   float turn_ratio;
+  float forward;
   bool shoot;
   bool exit_clicked;
 }controller;

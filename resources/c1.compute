@@ -2,6 +2,8 @@
 
 uniform int points;
 uniform vec2 pos;
+uniform vec2 player_pos;
+uniform float t;
 layout(std430, binding = 0) buffer dest
 {
   float data[];
@@ -14,13 +16,21 @@ float circle_distance(vec2 p, vec2 c, float r){
 }
 
 float distancefcn(vec2 p){
-  p.y = mod(p.y, 2000);
-  //float d1 = circle_distance(p, vec2(150,0), 100);
-  //float d2 = circle_distance(p, vec2(-150,200), 50);
-  //float d3 = circle_distance(p, vec2(-0,300), 20);
-  //float d4 = circle_distance(p, vec2(-320,320), 20);
-  float d1 = circle_distance(p, vec2(150,500), 100);
-  return d1; //min(d4, min(d3, min(d1, d2)));
+  float d2 = circle_distance(p, player_pos + vec2(0,0), 10);
+  /*if(p.x < 0)
+    return p.x;
+  if(p.x > 500)
+  return 500 - p.x;*/
+  vec2 p2 = p;
+  p2.y = p2.y - t * 10;
+  p2.y = mod(p2.y, 2000);		
+  float d1 = circle_distance(p2, vec2(130,500), 120);
+  
+  vec2 p3 = p;
+  p3.y = p.y - t * 9;
+  p3.y = mod(p3.y, 2000);		
+  float d3 = circle_distance(p3, vec2(380,500), 120);
+  return min(abs(510 - p.x), min(abs(-10 - p.x), min(d3, min(d2, d1)))); 
 }
 
 float trace_distance(vec2 p, vec2 direction){

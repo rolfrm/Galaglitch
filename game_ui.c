@@ -2,12 +2,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include<math.h>
 #include <iron/types.h>
 #include <iron/mem.h>
 #include <iron/fileio.h>
 #include <iron/log.h>
 #include <iron/utils.h>
 #include <iron/time.h>
+#include <iron/linmath.h>
 #include "game.h"
 #include "hash.h"
 #include "shader_utils.h"
@@ -284,6 +286,8 @@ void game_ui_get_cursor_pos(game_ui * renderer, double * xpos, double * ypos){
 controller game_ui_get_controller(game_ui * ui){
   int a = glfwGetKey(ui->window, GLFW_KEY_A);
   int d = glfwGetKey(ui->window, GLFW_KEY_D);
+  int w = glfwGetKey(ui->window, GLFW_KEY_W);
+  int s = glfwGetKey(ui->window, GLFW_KEY_S);
   int esc = glfwGetKey(ui->window, GLFW_KEY_ESCAPE);
   int space = glfwGetKey(ui->window, GLFW_KEY_SPACE);
   controller ctrl = {0};
@@ -295,9 +299,13 @@ controller game_ui_get_controller(game_ui * ui){
     ctrl.exit_clicked = true;
   if(space)
     ctrl.shoot = true;
+  if(w)
+    ctrl.forward += 1.0;
+  if(s)
+    ctrl.forward -= 1.0;
   return ctrl;
 }
-//#include<math.h>
+
 
 void test_compute_shader(game_ui * ui){
   glfwMakeContextCurrent(ui->window);
@@ -336,47 +344,104 @@ void test_compute_shader(game_ui * ui){
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vbo);
   
-  int t = 0;
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE);
   glEnableClientState(GL_VERTEX_ARRAY);
   glVertexPointer(2, GL_FLOAT, 0, 0);
   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-
+  vec2 p = vec2mk(0,500);
+  int power = 100;
+  float dir = 0.0;
+  float speed = 0.0;
+  float t = 0.0;
   while(true){
     u64 t1 = timestamp();
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(prog);
     glUniform1i(glGetUniformLocation(prog, "points"), pointcnt);
+    glUniform1f(glGetUniformLocation(prog, "t"), t++);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glVertexPointer(2, GL_FLOAT, 0, 0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    t += 10;
-    //int position = t += 10;
-    for(int i = -10; i < 10; i++){
+    controller ctrl = game_ui_get_controller(ui);
+    //logd("Ctrl: %f %f\n", ctrl.turn_ratio
+    dir -= ctrl.turn_ratio * 0.02;
+    vec2 dirvec = vec2mk(sin(dir), cos(dir));
 
-      int item = t / 250;
-      float x = ((i + item) % 2) * 500;
-      float y = ((i + item) / 2) * 500;
+    p = vec2_add(p, vec2_scale(dirvec, speed));
+    speed += ctrl.forward;
+    
 
+    glUseProgram(prog);
+    glUniform2f(glGetUniformLocation(prog, "player_pos"), p.x, p.y);
+
+    if(ctrl.shoot){
+      power -= 1;
+    }else{
+      power += 5;
+    }
+    
+    
+    for(int i = -2; i < 10; i++){
+
+      int item = p.y / 250;
+      int itemid = (item + i);;
+      float x = (itemid % 2) * 500;
+      float y = (itemid / 2) * 500;
+      if((itemid % 31) == 0 || (itemid % 23 == 0))
+	continue;
+      if(itemid % 51 == 0 || (itemid + 1) % 51 == 0)
+	continue;
+      if((itemid + 2) % 51 == 0)
+	continue;
+      if((itemid + 3) % 51 == 0)
+	continue;      
       glUseProgram(prog);
       glUniform2f(glGetUniformLocation(prog, "pos"), x, y);
+      
       glDispatchCompute(pointcnt/16, 1, 1);
       glUseProgram(ui->shader2.program);
-      glUniform2f(ui->shader2.offset_uniform,  x, y - t);
+      glUniform2f(ui->shader2.offset_uniform,  x, y - p.y - 400);
       glUniform2f(ui->shader2.scale_uniform, 1.0 / 800.0, 1.0 / 800.0);
-      glUniform3f(ui->shader2.color_uniform, 0.5, 0.5, 0.9);
+      if((itemid % 13) == 0)
+	glUniform3f(ui->shader2.color_uniform, 0.6, 0.3, 0.2);
+      else if((itemid % 5) == 0)
+	glUniform3f(ui->shader2.color_uniform, 0.5, 0.5, 0.9);
+      else
+	glUniform3f(ui->shader2.color_uniform, 0.5, 0.7, 0.6);
       glUniform1f(ui->shader2.falloff_uniform, 0.005);
       glDrawArrays(GL_TRIANGLE_FAN, 0, pointcnt + 1);
-
     }
+    float light_power = 0.1;
+    if(ctrl.shoot && power > 0){
+      light_power = 1.0;
+    }
+    glUseProgram(prog);
+    glUniform2f(glGetUniformLocation(prog, "pos"), p.x + dirvec.x * 21, p.y + dirvec.y * 21);
+    
+    glDispatchCompute(pointcnt/16, 1, 1);
+    glUseProgram(ui->shader2.program);
+    glUniform2f(ui->shader2.offset_uniform,  p.x + dirvec.x * 21,  dirvec.y * 21 - 400);
+      
+    glUniform2f(ui->shader2.scale_uniform, 1.0 / 800.0, 1.0 / 800.0);
+    if(power < 20){
+      float rest = power * 0.05;
+      glUniform3f(ui->shader2.color_uniform,light_power * 1 * sqrtf(rest), light_power * 1 * rest, light_power * 0.8 * rest);
+    }else{
+	glUniform3f(ui->shader2.color_uniform, light_power * 1, light_power * 1, light_power * 0.8);
+      }
+      
+    glUniform1f(ui->shader2.falloff_uniform, 0.005);
+      glDrawArrays(GL_TRIANGLE_FAN, 0, pointcnt + 1);
+    
+    
     glfwSwapBuffers(ui->window);
     glfwPollEvents();
     u64 t2 = timestamp();
     u64 dt = t2 - t1;\
-    if((t%100) == 0)
+    if((((int)p.y)%100) == 0)
       logd("dt: %f\n", (float)dt * 0.001);
     iron_usleep(10000);
   }
