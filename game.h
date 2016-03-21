@@ -1,9 +1,14 @@
 
+typedef struct{
+  u64 id;
+}asset_id;
+
 typedef struct { 
   int * type;
   int * vertex;
   float * x;
   float * y;
+  float * z;
   float * dx;
   float * dy;
   float * a;
@@ -49,8 +54,10 @@ typedef struct{
 }game_models;
 
 typedef struct{
-  vertex_list vertexes;
-  face_list faces;
+  //vec3 pos;
+  //vec3 size;
+  //asset_id visual;
+  //asset_id physical;
 }game_floor;
 
 typedef struct{
@@ -87,3 +94,5 @@ void game_ui_draw_angular(game_ui * renderer, float * angle, float * distance, i
 void game_ui_swap(game_ui *);
 controller game_ui_get_controller(game_ui * ui);
 void test_compute_shader(game_ui * ui);
+
+//game_floor game_floor_load(vec3 pos, vec3 size, const char * name);

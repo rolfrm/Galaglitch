@@ -88,7 +88,7 @@ static void load_s2(s2 * s){
   dealloc(frag_code);
 }
 
-static u64 get_model_hash(hashstate * hashstate, vertex_list verts, face_list faces){
+/*static u64 get_model_hash(hashstate * hashstate, vertex_list verts, face_list faces){
   hashstate_reset(hashstate);
   hashstate_update(hashstate, verts.x, sizeof(*verts.x) * verts.cnt);
   hashstate_update(hashstate, verts.y, sizeof(*verts.y) * verts.cnt);
@@ -97,10 +97,11 @@ static u64 get_model_hash(hashstate * hashstate, vertex_list verts, face_list fa
   hashstate_update(hashstate, faces.v2, sizeof(*faces.v2) * faces.cnt);
   hashstate_update(hashstate, faces.v3, sizeof(*faces.v3) * faces.cnt);
   return hashstate_digest(hashstate);
-}
+  }*/
 
 // GL context dependent
-static void load_model(game_ui * ui, ui_model * model, vertex_list verts, face_list faces){
+/*static void load_model(game_ui * ui, ui_model * model, vertex_list verts, face_list faces){
+  
   if(verts.cnt == 0) return;
   if(faces.cnt == 0) return;
   u64 model_hash = get_model_hash(ui->hashstate, verts, faces);
@@ -140,7 +141,7 @@ static void load_model(game_ui * ui, ui_model * model, vertex_list verts, face_l
   model->hash = model_hash;
   model->vertex_cnt = verts.cnt;
   model->face_cnt = faces.cnt;
-}
+  }*/
 
 static void load_angle_model(game_ui * ui, angle_model * model, float * angles, float * distances, int cnt){
   UNUSED(ui);
@@ -198,10 +199,11 @@ static void draw_model(s1 shader, ui_model model){
 
 
 void game_ui_update(game_ui * ui, const game_data * gd){
+  UNUSED(gd);
   glfwMakeContextCurrent(ui->window);
   glUseProgram(ui->shader1.program);
   assert_no_glerr();
-  load_model(ui, &ui->floor_model, gd->floor.vertexes, gd->floor.faces);
+  //load_model(ui, &ui->floor_model, gd->floor.vertexes, gd->floor.faces);
   assert_no_glerr();
   glClearColor(0.0,0,0,0);
   glClear(GL_COLOR_BUFFER_BIT);
