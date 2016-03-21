@@ -1,4 +1,4 @@
-OPT = -g0 -O4
+OPT = -g3 -O0
 LIB_SOURCES = game.c iron/mem.c iron/process.c iron/array.c iron/math.c iron/time.c  iron/log.c iron/fileio.c iron/linmath.c mock_player_update.c mock_ai.c physics_update.c test.c game_ui.c xxhash.c hash.c shader_utils.c data_table.c #assets.c
 CC = gcc
 TARGET = glitch
