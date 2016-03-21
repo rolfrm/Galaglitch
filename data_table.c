@@ -7,7 +7,9 @@
 #include <iron/mem.h>
 #include "data_table.h"
 
-static table_index table_index_new(u64 index, u8 _check){
+table_index table_index_default;
+
+table_index table_index_new(u64 index, u8 _check){
   u64 check = _check;
   table_index out;
   out.index_data = index | (check << 58);
@@ -17,7 +19,7 @@ static table_index table_index_new(u64 index, u8 _check){
 data_table * data_table_new(){
   data_table * table =alloc0(sizeof(data_table));
   // add the 0 index.
-  data_table_insert_item(table, 0, 0);
+  data_table_insert(table, 0, 0);
   return table;
 }
 
@@ -37,7 +39,7 @@ static void table_index_split_check(data_table *  table, table_index tidx, u64 *
   ASSERT(table->index_check[*index] == *check);
 }
 
-table_index data_table_insert_item(data_table * table, u32 type, u64 data){
+table_index data_table_insert(data_table * table, u32 type, u64 data){
   if(table->unused_index_cnt > 0){
     u64 reuse_index = --(table->unused_index_cnt);
     table->index_check[reuse_index]++;
@@ -52,7 +54,7 @@ table_index data_table_insert_item(data_table * table, u32 type, u64 data){
   return table_index_new(table->cnt - 1, 0);
 }
 
-void data_table_remove_item(data_table * table, table_index t_index){
+void data_table_remove(data_table * table, table_index t_index){
   u64 index;
   u8 check;
   table_index_split_check(table, t_index, &index, &check);
@@ -62,14 +64,11 @@ void data_table_remove_item(data_table * table, table_index t_index){
   list_push2(table->unused_indexes, table->unused_index_cnt, index);
 }
 
-void data_table_data(data_table * table, table_index t_index, u32 * out_type, u64 * out_data){
+u64 data_table_index(data_table * table, table_index t_index){
   u64 index;
   u8 check;
   table_index_split_check(table, t_index, &index, &check);
-  if(out_type != NULL)
-    *out_type = table->type[index];
-  if(out_data != NULL)
-    *out_data = table->data[index];
+  return index;
 }
 
 static u32 table_type_cnt = 0;

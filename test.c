@@ -35,47 +35,101 @@ void _error(const char * file, int line, const char * msg, ...){
 
 
 u64 TEST_TYPE_1, TEST_TYPE_2;
-bool data_table_test(){
+bool data_table_core_test(){
   TABLE_TYPE(TEST_TYPE_1);
   TABLE_TYPE(TEST_TYPE_2);
     
   data_table * dt = data_table_new();
   table_index indexes[10];
   for(int i = 0; i < 10; i++){
-    indexes[i] = data_table_insert_item(dt, TEST_TYPE_2, i * 10 + 50);  
+    indexes[i] = data_table_insert(dt, TEST_TYPE_2, i * 10 + 50);  
   }
 
   for(u64 i = 0; i < 10; i++){
-    u64 data;
-    u32 type;
-    data_table_data(dt, indexes[i], &type, &data);
-    TEST_ASSERT_EQUAL(data, i * 10 + 50);
-    TEST_ASSERT_EQUAL(type, TEST_TYPE_2);
+    u64 idx = data_table_index(dt, indexes[i]);
+    TEST_ASSERT_EQUAL(dt->data[idx], i * 10 + 50);
+    TEST_ASSERT_EQUAL(dt->type[idx], TEST_TYPE_2);
   }
   TABLE_TYPE(TEST_TYPE_1);
   TABLE_TYPE(TEST_TYPE_2);
   for(int i = 0; i < 5; i++){
-    data_table_remove_item(dt, indexes[i]);
+    data_table_remove(dt, indexes[i]);
   }
   TEST_ASSERT_EQUAL(dt->unused_index_cnt, 5);
   for(int i = 0; i < 5; i++){
-    indexes[i] = data_table_insert_item(dt, TEST_TYPE_1, i * 200 + 5);
+    indexes[i] = data_table_insert(dt, TEST_TYPE_1, i * 200 + 5);
   }
   
   for(u64 i = 0; i < 5; i++){
-    u64 data;
-    u32 type;
-    data_table_data(dt, indexes[i], &type, &data);
-    TEST_ASSERT_EQUAL(data, i * 200 + 5);
-    TEST_ASSERT_EQUAL(type, TEST_TYPE_1);
+    u64 idx = data_table_index(dt, indexes[i]);
+    TEST_ASSERT_EQUAL(dt->data[idx], i * 200 + 5);
+    TEST_ASSERT_EQUAL(dt->type[idx], TEST_TYPE_1);
   }
   data_table_delete(&dt);
   return TEST_SUCCESS;
 }
+typedef struct{
+  size_t cnt;
+  size_t column_cnt;
+  table_index ** indexes;
 
+}span_table;
+#include <stddef.h>
+table_index span_table_insert(span_table * span, const table_index * indexes);
+span_table * span_table_new(int column_cnt){
+  span_table * table = alloc0(sizeof(span_table) + column_cnt * sizeof(void *));
+  table->indexes = ((void *)table) + offsetof(span_table, indexes) + sizeof(void *);
+  table->column_cnt = column_cnt;
+  table_index zero_indexes[table->column_cnt];
+  memset(zero_indexes, 0, sizeof(zero_indexes));
+  span_table_insert(table,zero_indexes);
+  return table;
+}
+
+table_index span_table_insert(span_table * span, const table_index * indexes){
+  span->cnt += 1; 
+  for(size_t i = 0; i < span->column_cnt; i++){
+    span->indexes[i] = realloc(span->indexes[i], sizeof(table_index) * span->cnt);
+    span->indexes[span->cnt - 1][i] = indexes[i];
+  }
+  return table_index_new(span->cnt - 1, 0);
+}
+
+void span_table_delete(span_table ** table_loc){
+  span_table * table = *table_loc;
+  *table_loc = NULL;
+  for(size_t i = 0; i < table->column_cnt; i++)
+    dealloc(table->indexes[i]);
+  dealloc(table);
+}
+
+bool span_table_test(){
+  u64 TT_PLAYER = table_type_new();
+  u64 TT_ENEMY = table_type_new();
+  
+  data_table * dt = data_table_new();
+  span_table * table = span_table_new(3);
+  table_index indexes[3] = {table_index_default, table_index_default, table_index_default};
+  indexes[0] = data_table_insert(dt, TT_PLAYER, 5);
+  
+  table_index player = span_table_insert(table, indexes);
+  indexes[0] = data_table_insert(dt, TT_ENEMY, 6);
+  table_index enemy = span_table_insert(table, indexes);
+  logd("Player: %i, Enemy: %i\n", player.index_data, enemy.index_data);
+  for(size_t i = 0; i < table->cnt; i++){
+    
+    u64 idx = data_table_index(dt, table->indexes[i][0]);
+    logd("Idx: %i %i %i\n", i, dt->type[idx], dt->data[idx]);
+  }
+  data_table_delete(&dt);
+  span_table_delete(&table);
+  
+  return TEST_SUCCESS;
+}
 
 int main(){
-  TEST(data_table_test);
+  TEST(data_table_core_test);
+  TEST(span_table_test);
   //TEST(test_line_segment);
   //TEST(test_main_loop);
   //TEST(test_graphics);
