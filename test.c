@@ -82,42 +82,66 @@ bool data_table_core_test(){
     TEST_ASSERT_EQUAL(dt->data[idx], i * 200 + 5);
     TEST_ASSERT_EQUAL(dt->type[idx], TEST_TYPE_1);
   }
+  table_print(dt);
   table_delete(&dt);
   return TEST_SUCCESS;
 }
+
 typedef struct{
-  size_t cnt;
-  size_t column_cnt;
-  table_index ** indexes;
-
-}span_table;
-
-table_index span_table_insert(span_table * span, const table_index * indexes);
-span_table * span_table_new(int column_cnt){
-  span_table * table = alloc0(sizeof(span_table) + column_cnt * sizeof(void *));
-  table->indexes = ((void *)table) + offsetof(span_table, indexes) + sizeof(void *);
-  table->column_cnt = column_cnt;
-  table_index zero_indexes[table->column_cnt];
-  memset(zero_indexes, 0, sizeof(zero_indexes));
-  span_table_insert(table,zero_indexes);
-  return table;
+  table_header header;
+  table_index * index0;
+  table_index * index1;
+  table_index * index2;
+}span3_table;
+int vec3_do_print(char * o, int size, vec3 *v){
+  return snprintf(o, size, "(%f %f %f)", v->x, v->y, v->z);
 }
-
-table_index span_table_insert(span_table * span, const table_index * indexes){
-  span->cnt += 1; 
-  for(size_t i = 0; i < span->column_cnt; i++){
-    span->indexes[i] = realloc(span->indexes[i], sizeof(table_index) * span->cnt);
-    span->indexes[span->cnt - 1][i] = indexes[i];
+table_def * span3_table_get_def(){
+  static u32 offset[] = {offsetof(span3_table, index0), offsetof(span3_table, index1), offsetof(span3_table, index2)};
+  static u32 size[] = {sizeof(table_index),sizeof(table_index), sizeof(table_index)};
+  static u32 total_size = sizeof(span3_table);
+  static u32 cnt = array_count(offset);
+  static table_def def;
+  if(def.cnt == 0){
+    column_def columns[] = {COLUMN_DEF(span3_table, index0, table_index),
+			  COLUMN_DEF(span3_table, index1, table_index),
+			  COLUMN_DEF(span3_table, index2, table_index)};
+			  
+    def.offset = offset;
+    def.size = size;
+    def.total_size = total_size;
+    def.columns = iron_clone(columns, sizeof(columns));
+    def.cnt = cnt;
   }
-  return table_index_new(span->cnt - 1, 0);
+  return &def;
 }
 
-void span_table_delete(span_table ** table_loc){
-  span_table * table = *table_loc;
-  *table_loc = NULL;
-  for(size_t i = 0; i < table->column_cnt; i++)
-    dealloc(table->indexes[i]);
-  dealloc(table);
+typedef struct{
+  table_header header;
+  vec3 * loc;
+  vec3 * size;
+  vec3 * vel;
+  float * mass;
+}physics_table;
+
+table_def * physics_table_get_def(){
+  static u32 offset[] = {offsetof(physics_table, loc), offsetof(physics_table, size), offsetof(physics_table, vel), offsetof(physics_table, mass)};
+  static u32 size[] = {sizeof(vec3),sizeof(vec3), sizeof(vec3), sizeof(float)};
+  static u32 total_size = sizeof(physics_table);
+  static u32 cnt = array_count(offset);
+  static table_def def;
+  if(def.cnt == 0){
+    column_def columns[] = {COLUMN_DEF(physics_table, loc, vec3),
+			    COLUMN_DEF(physics_table, size, vec3),
+			    COLUMN_DEF(physics_table, vel, vec3),
+			    COLUMN_DEF(physics_table, mass, float)};
+    def.offset = offset;
+    def.size = size;
+    def.total_size = total_size;
+    def.columns = iron_clone(columns, sizeof(columns));
+    def.cnt = cnt;
+  }
+  return &def;
 }
 
 bool span_table_test(){
@@ -125,27 +149,47 @@ bool span_table_test(){
   u64 TT_ENEMY = table_type_new();
   
   data_table * dt = table_new(data_table);
-  span_table * table = span_table_new(3);
-  table_index indexes[3] = {table_index_default, table_index_default, table_index_default};
-  indexes[0] = table_add_row(dt);
-  u64 player_index = table_raw_index(dt, indexes[0]);
-  dt->type[player_index] = TT_PLAYER;
-  dt->data[player_index] = 5;
-  
-  table_index player = span_table_insert(table, indexes);
-  indexes[0] = table_add_row(dt);
-  u64 enemy_index = table_raw_index(dt, indexes[0]);
-  dt->type[enemy_index] = TT_ENEMY;
-  dt->data[enemy_index] = 4;
-  table_index enemy = span_table_insert(table, indexes);
-  logd("Player: %i, Enemy: %i\n", player.index_data, enemy.index_data);
-  for(size_t i = 0; i < table->cnt; i++){
-    
-    u64 idx = table_raw_index(dt, table->indexes[i][0]);
-    logd("Idx: %i %i %i\n", i, dt->type[idx], dt->data[idx]);
+  span3_table * table = table_new(span3_table);
+  physics_table * ptable = table_new(physics_table);
+  COLUMN_DEF(physics_table, mass, float);
+  {
+    table_index i1 = table_add_row(dt);
+    u64 player_index = table_raw_index(dt, i1);
+    dt->type[player_index] = TT_PLAYER;
+    dt->data[player_index] = 5;
+    table_index player = table_add_row(table);
+    table->index0[table_raw_index(table, player)] = i1;
+    table_index p1 = table_add_row(ptable);
+    table->index1[table_raw_index(table, player)] = p1;
+    ptable->mass[table_raw_index(ptable,p1)] = 1.0;
   }
+  
+
+  {
+    table_index i2 = table_add_row(dt);
+    u64 enemy_index = table_raw_index(dt, i2);
+    dt->type[enemy_index] = TT_ENEMY;
+    dt->data[enemy_index] = 4;
+    table_index enemy = table_add_row(table);
+    table_index p2 = table_add_row(ptable);
+    table->index0[table_raw_index(table, enemy)] = i2;
+    table->index1[table_raw_index(table, enemy)] = p2;
+    ptable->mass[table_raw_index(ptable, p2)] = 2.0;
+
+  }
+  for(size_t i = 0; i < table->header.cnt; i++){
+    
+    u64 idx = table_raw_index(dt, table->index0[i]);
+    u64 idx2 = table_raw_index(dt, table->index1[i]);
+    logd("Idx: %i %i %i %i %f\n", i, dt->type[idx], dt->data[idx], idx2, ptable->mass[idx2]);
+    TEST_ASSERT(idx2 == 0 || ptable->mass[idx2] > 0);
+  }
+  printf("Span3 table:\n");
+  table_print(table);
+  table_print(ptable);
+  table_print(dt);
   table_delete(&dt);
-  span_table_delete(&table);
+  table_delete(&table);
   
   return TEST_SUCCESS;
 }

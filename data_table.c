@@ -14,15 +14,21 @@
 
 static u32 data_table_offsets[] = {offsetof(data_table, type), offsetof(data_table, data)};
 static u32 data_table_sizes[] = {sizeof(u32), sizeof(u64)};
+
 static table_def data_table_def_ins;
 table_def * data_table_get_def(){
+  static column_def data_table_columns[2];
   if(data_table_def_ins.cnt == 0){
+    data_table_columns[0] = COLUMN_DEF(data_table, type, u32);
+    data_table_columns[1] = COLUMN_DEF(data_table, data, u64);
     table_def tdef;
     tdef.size = data_table_sizes;
     tdef.offset = data_table_offsets;
+    tdef.columns = data_table_columns;
     tdef.cnt = array_count(data_table_sizes);
     tdef.total_size = sizeof(data_table);
     data_table_def_ins = tdef;
+    
   }
   return &data_table_def_ins;
 }
@@ -107,3 +113,63 @@ u32 table_type_new(){
 
 
 
+column_def column_def_new(u32 offset, u32 size, const char * name, void * printer){
+  column_def def;
+  def.name = name;
+  def.size = size;
+  def.offset = offset;
+  def.printer = printer;
+  return def;
+}
+
+#include <stdio.h>
+
+int float_do_print(char * o, int size, float *v){ return snprintf(o, size ,"%f", *v);}
+int u32_do_print(char * o, int size, u32 * v){return snprintf(o, size, "%i", *v);}
+int u64_do_print(char * o, int size, u64 * v){return snprintf(o, size, "%i", *v);}
+int table_index_do_print(char * o, int size, table_index * t){
+  u64 index = t->index_data & 0x00FFFFFFFFFFFFFFL;
+  u8 check = (u8)(t->index_data >> 56);
+  return snprintf(o, size ,"%i(%i)", index, check);
+}
+
+void _table_print(table_header * table){
+  int pre_padding = 0;
+  table_def * def = table->def;
+  for(u32 i = 0; i < def->cnt; i++){
+    int s = snprintf(NULL, 0, "%s", def->columns[i].name);
+    pre_padding = MAX(s, pre_padding);
+    for(u64 j = 0; j < table->cnt; j++){
+      void ** array = ((void *)table) + def->columns[i].offset;
+      void * ptr = *array + j * def->columns[i].size;
+      int s =  def->columns[i].printer(NULL, 0, ptr);
+      pre_padding = MAX(s, pre_padding);
+    }
+  }
+  pre_padding += 1;
+      
+  char buffer[pre_padding];
+
+  for(u32 i = 0; i < def->cnt; i++){
+    if(i > 0)
+      printf(" |");
+    int s = snprintf(NULL, 0, "%s", def->columns[i].name);
+    printf("%*s", pre_padding - s, "");
+    printf("%s", def->columns[i].name);
+  }
+  printf("\n");
+  for(u64 j = 0; j < table->cnt; j++){
+    for(u32 i = 0; i < def->cnt; i++){
+      if(i > 0)
+	printf(" |");
+      void ** array = ((void *)table) + def->columns[i].offset;
+      void * ptr = *array + j * def->columns[i].size;
+      int s =  def->columns[i].printer(NULL, 0, ptr);
+      printf("%*s", pre_padding - s, "");
+      def->columns[i].printer(buffer, pre_padding, ptr);
+      printf("%s", buffer);
+
+    }
+    printf("\n");
+  }
+}
