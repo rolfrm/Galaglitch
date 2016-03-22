@@ -52,6 +52,9 @@ void _table_remove(table_header * table, table_index t_index);
 // warning: this index is temporary. Use table_index for storage.
 u64 _table_raw_index(table_header * table, table_index t_index);
 #define table_raw_index(table, index) _table_raw_index(&table->header, index)
+
+bool table_index_is_valid(table_index t_index);
+
 u32 table_type_new();
 #define TABLE_TYPE(X) (X ? X : (X = table_type_new()));
 table_def * data_table_get_def();

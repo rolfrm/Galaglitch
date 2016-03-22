@@ -1,10 +1,10 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include <iron/types.h>
 #include "data_table.h"
 #include "uthash.h"
 #include "string_table.h"
 
-#include <stdbool.h>
 #include <iron/mem.h>
 #include <iron/utils.h>
 #include <stdio.h>

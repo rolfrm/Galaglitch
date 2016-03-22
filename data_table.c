@@ -58,13 +58,23 @@ static void table_index_split_check(table_header *  table, table_index tidx, u64
   ASSERT(table->index_check[*index] == *check);
 }
 
+bool table_index_is_valid(table_index t_index){
+  return t_index.check != 0;
+}
+
 table_index _table_add_row(table_header * table){
-  static u8 check_hash = 123;
+  static u8 check_hash = 10;
   table_def * def = table->def;
+  u8 chk = 0;
+  if(table->cnt != 0){
+    chk = ++check_hash;
+    if(chk == 0)
+      chk = ++check_hash;
+  }
+  
   if(table->unused_index_cnt > 0){
     u64 reuse_index = table->unused_indexes[--(table->unused_index_cnt)];
     ASSERT(reuse_index > 0);
-    u8 chk = ++check_hash;
     table->index_check[reuse_index] = chk;
     for(u32 i = 0; i < def->cnt; i++){
       void ** array = ((void *) table) + def->columns[i].offset;
@@ -79,7 +89,7 @@ table_index _table_add_row(table_header * table){
     *array = realloc(*array, def->columns[i].size * newcnt);
     memset(*array + table->cnt * def->columns[i].size, 0, def->columns[i].size);
   }
-  u8 chk = ++check_hash;
+
   list_push2(table->index_check, table->cnt, chk);
   
   return table_index_new(table->cnt - 1, chk);

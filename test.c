@@ -186,8 +186,7 @@ bool span_table_test(){
     
     u64 idx = table_raw_index(dt, table->index0[i]);
     u64 idx2 = table_raw_index(ptable, table->index1[i]);
-    logd("Idx: %i %i %i %i %f\n", i, dt->type[idx], dt->data[idx], idx2, ptable->mass[idx2]);
-    TEST_ASSERT(idx2 == 0 || ptable->mass[idx2] > 0);
+    TEST_ASSERT(ptable->mass[idx2] > 0 && ptable->mass[idx] > 0);
   }
   for(int j = 0; j < 5; j++){
     table_print(ptable);
@@ -195,7 +194,6 @@ bool span_table_test(){
       ptable->loc[i] = vec3_add(ptable->loc[i], ptable->vel[i]);
     }
   }
-  printf("Span3 table:\n");
   table_print(table);
   table_print(ptable);
   table_print(dt);
@@ -227,42 +225,162 @@ bool string_table_test(){
   return TEST_SUCCESS;
 }
 
+enum image_format{
+  FORMAT_NONE = 0,
+  FORMAT_GRAY = 1,
+  FORMAT_RG = 2,
+  FORMAT_RGB = 3,
+  FORMAT_RGBA = 4
+};
+#include <iron/fileio.h>
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include <GLFW/glfw3.h>
+#include "shader_utils.h"
+//nclude <GL/glew.h>
+void * stbi_load(const char * path, int * width, int * height, int * components, int * req_components);
+int load_png_as_texture(const char * path, u8 * in_out_format, u32 * out_glref, int * out_width, int * out_height){
 
+  int fmt = *in_out_format;
+  void * buf = stbi_load(path, out_width, out_height, &fmt, fmt == 0 ? 0 : &fmt); 
+  *in_out_format = fmt;
+  glGenTextures(1, out_glref);
+  glBindTexture(GL_TEXTURE_2D, *out_glref);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-table_def * gl_tex_table_get_def(){
-  static table_def def;
-  if(def.cnt == 0){
-    column_def columns[] =
-      {COLUMN_DEF(gl_tex_table, name, table_index),
-       COLUMN_DEF(gl_tex_table, height, int),
-       COLUMN_DEF(gl_tex_table, width, int),
-       COLUMN_DEF(gl_tex_table, format, u8),
-       COLUMN_DEF(gl_tex_table, gl_ref, u32)
-      };
-    def.columns = iron_clone(columns, sizeof(columns));
-    def.cnt = array_count(columns);
-    def.total_size = sizeof(gl_tex_table);
+  int internal_format = GL_RGB;
+  switch(fmt){
+  case 1:
+    internal_format = GL_RED;
+    break;
+  case 2:
+    internal_format = GL_RG;
+    break;
+  case 3:
+    internal_format = GL_RGB;
+    break;
+  case 4:
+    internal_format = GL_RGBA;
+    break;
+  default:
+    ERROR("Invalid format: %i\n", fmt);
+    return 1;
   }
-  return &def;
+  
+  glTexImage2D(GL_TEXTURE_2D, 0,internal_format, *out_width, *out_height, 0, internal_format, GL_UNSIGNED_BYTE, buf);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  dealloc(buf);
+  return 0;
 }
 
-/*bool test_gl_image_table()
-{
-  gl_image_table * gl_tab = table_new(gl_image_table);
-  string_table * s_tab = table_new(string_table);
-  table_index _idx = table_add_row(gl_tab);
-  u64 idx = table_raw_index(gl_tab, _idx);
-  
-  }*/
+
 
 bool game_content_test(){
+  glfwInit();
+  GLFWwindow * win = glfwCreateWindow(200, 200, "Galaglitch", NULL, NULL);
+  glfwMakeContextCurrent(win);
+  glewInit();
+  size_t s1_vert_size, s1_frag_size;
+  char * s1_vert = read_file_to_buffer("assets/s1.vert", &s1_vert_size);
+  char * s1_frag = read_file_to_buffer("assets/s1.frag", &s1_frag_size);
+  int shader = load_simple_shader(s1_vert, s1_vert_size, s1_frag, s1_frag_size);
+  TEST_ASSERT(shader != -1);
+  u32 vbo;
+  {
+    int pointcnt = 32;
+
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, 2 * (1 + pointcnt) * sizeof(float), NULL, GL_STREAM_DRAW);
+    float * buffer = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+    for(int i = 0; i < pointcnt; i++){
+      buffer[i*2] = sin(2.0 * M_PI * ((float) i) / pointcnt);
+      buffer[i*2 + 1] = cos(2.0 * M_PI * ((float) i) / pointcnt);
+    }
+    buffer[pointcnt * 2] = buffer[0];
+    buffer[pointcnt * 2 + 1] = buffer[1];
+    glUnmapBuffer(GL_ARRAY_BUFFER);
+  }
+  TEST_ASSERT(vbo > 0);
   game_content * content = init_game_content();
   TEST_ASSERT(content != NULL);
+  {
+    table_index idx = table_add_row(content->entities);
+    content->entities->name[idx.raw] = string_table_insert(content->strings, "Player");
+    { // add physics body
+      table_index data1 = table_add_row(content->data);
+      content->data->type[data1.raw] = TABLE_TYPE(physics_type);
+      table_index p = table_add_row(content->physics);
+      content->data->data[data1.raw] = p.index_data;
+      content->entities->data1[idx.raw] = data1;
+      content->physics->loc[p.raw] = vec3_new(0.5, 0.5, 0.0);
+      content->physics->vel[p.raw] = vec3_new(0.1, 0.1, 0.0);
+    }
+    { // add sprite
+      const char * path = "assets/pl1.png";
+      table_index tex = table_add_row(content->textures);
+      table_index name = string_table_insert(content->strings, path);
+      content->textures->name[tex.raw] = name;
+      int load_status = load_png_as_texture(path, content->textures->format + tex.raw,
+					    content->textures->gl_ref + tex.raw,
+					    content->textures->width + tex.raw, content->textures->height + tex.raw);
+      ASSERT(load_status == 0);
+    }
 
-  table_index idx = table_add_row(content->entities);
-  content->entities->name[idx.raw] = string_table_insert(content->strings, "Player");
+  }
+  {
+    table_index idx = table_add_row(content->entities);
+    content->entities->name[idx.raw] = string_table_insert(content->strings, "Enemy");
+    table_index data1 = table_add_row(content->data);
+    content->data->type[data1.raw] = TABLE_TYPE(physics_type);
+    content->data->data[data1.raw] = table_add_row(content->physics).index_data;
+    content->entities->data1[idx.raw] = data1;
+  }
+
+  for(int i = 0; i < 1000; i++){
+    for(u64 j = 1; j < content->physics->header.cnt; j++){
+      content->physics->loc[j] = vec3_add(content->physics->loc[j], content->physics->vel[j]);
+      content->physics->vel[j] = vec3_scale(content->physics->vel[j], 0.95);
+    }
+    u64 t1 = timestamp();
+
+    glClearColor(0.1,0.1,0.1,0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(2, GL_FLOAT, 0, 0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glUseProgram(shader);
+    for(u32 j = 0 ; j < content->entities->header.cnt; j++){
+      table_index idx = content->entities->data1[j];
+      if(!table_index_is_valid(idx)){
+	continue;
+      }
+      u64 k = table_raw_index(content->data, idx);
+      if(content->data->type[k] == physics_type){
+	table_index ti;
+	ti.index_data = content->data->data[k];
+	if(!table_index_is_valid(ti))
+	  continue;
+	u64 k2 = table_raw_index(content->physics, ti);
+	vec3 loc = content->physics->loc[k2];
+	glUniform2f(glGetUniformLocation(shader, "offset"), loc.x, loc.y);
+	glDrawArrays(GL_LINE_LOOP, 0, 33);
+      }
+    }
+    glfwSwapBuffers(win);
+    u64 t2 = timestamp();
+    u64 dt = t2 - t1;
+    if((i%10) == 0)
+      logd("dt: %fms\n", (float)dt * 0.001);
+    iron_usleep(10000);
+  }
   table_print(content->entities);
   table_print(content->strings);
+  table_print(content->physics);
+  table_print(content->textures);
   return TEST_SUCCESS;
 }
 

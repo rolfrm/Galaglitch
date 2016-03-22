@@ -57,8 +57,11 @@ typedef struct{
   entity_table * entities;
   data_table * data;
   physics_table * physics;
-  surface_table * floors;
+  surface_table * surfaces;
   gl_tex_table * textures;
 }game_content;
 
 game_content * init_game_content();
+
+u32 physics_type, sprite_type;
+int vec3_do_print(char * buffer, int size, vec3 * ptr);
