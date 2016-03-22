@@ -10,11 +10,10 @@ typedef struct{
   u32 offset;
   int (* printer)(char * out, int size, void *);
   const char * name;
+  const char * type_name;
 }column_def;
 
 typedef struct{
-  u32 * offset;
-  u32 * size;
   column_def * columns;
   u32 cnt;
   u32 total_size;
@@ -49,13 +48,15 @@ u64 _table_raw_index(table_header * table, table_index t_index);
 u32 table_type_new();
 #define TABLE_TYPE(X) (X ? X : (X = table_type_new()));
 table_def * data_table_get_def();
-column_def column_def_new(u32 offset, u32 size, const char * name, void * printer);
+column_def column_def_new(u32 offset, u32 size, const char * name, void * printer, const char * type_name);
 #define COLUMN_DEF(type, member, membertype) \
-  column_def_new(offsetof(type, member), sizeof(membertype), #member, membertype ## _do_print)
+  column_def_new(offsetof(type, member), sizeof(membertype), #member, membertype ## _do_print, #membertype)
 
 int float_do_print(char *, int size,  float *);
 int u32_do_print(char *, int size, u32 *);
 int u64_do_print(char *, int size, u64 *);
+int u8_do_print(char * o, int size, u8 * v);
+int int_do_print(char * o, int size, int * v);
 int table_index_do_print(char * o, int size, table_index * t);
 void _table_print(table_header * table);
 #define table_print(table) _table_print(&table->header);
