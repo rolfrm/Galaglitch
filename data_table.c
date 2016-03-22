@@ -115,10 +115,6 @@ u32 table_type_new(){
   return ++table_type_cnt;
 }
 
-#define TABLE_TYPE(X) (X ? X : (X = table_type_new()));
-
-
-
 column_def column_def_new(u32 offset, u32 size, const char * name, void * printer, const char * type_name){
   column_def def;
   def.name = name;
@@ -133,7 +129,7 @@ column_def column_def_new(u32 offset, u32 size, const char * name, void * printe
 
 int float_do_print(char * o, int size, float *v){ return snprintf(o, size ,"%f", *v);}
 int u32_do_print(char * o, int size, u32 * v){return snprintf(o, size, "%i", *v);}
-int u64_do_print(char * o, int size, u64 * v){return snprintf(o, size, "%i", *v);}
+int u64_do_print(char * o, int size, u64 * v){return snprintf(o, size, "%p", *v);}
 int u8_do_print(char * o, int size, u8 * v){return snprintf(o, size, "%i", *v);}
 int int_do_print(char * o, int size, int * v){return snprintf(o, size, "%i", *v);}
 int table_index_do_print(char * o, int size, table_index * t){

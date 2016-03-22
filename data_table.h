@@ -56,7 +56,7 @@ u64 _table_raw_index(table_header * table, table_index t_index);
 bool table_index_is_valid(table_index t_index);
 
 u32 table_type_new();
-#define TABLE_TYPE(X) (X ? X : (X = table_type_new()));
+#define TABLE_TYPE(X) (X ? X : (X = table_type_new()))
 table_def * data_table_get_def();
 column_def column_def_new(u32 offset, u32 size, const char * name, void * printer, const char * type_name);
 #define COLUMN_DEF(type, member, membertype) \

@@ -246,8 +246,8 @@ int load_png_as_texture(const char * path, u8 * in_out_format, u32 * out_glref, 
   *in_out_format = fmt;
   glGenTextures(1, out_glref);
   glBindTexture(GL_TEXTURE_2D, *out_glref);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
   int internal_format = GL_RGB;
   switch(fmt){
@@ -267,7 +267,6 @@ int load_png_as_texture(const char * path, u8 * in_out_format, u32 * out_glref, 
     ERROR("Invalid format: %i\n", fmt);
     return 1;
   }
-  
   glTexImage2D(GL_TEXTURE_2D, 0,internal_format, *out_width, *out_height, 0, internal_format, GL_UNSIGNED_BYTE, buf);
   glBindTexture(GL_TEXTURE_2D, 0);
   dealloc(buf);
@@ -326,6 +325,10 @@ bool game_content_test(){
 					    content->textures->gl_ref + tex.raw,
 					    content->textures->width + tex.raw, content->textures->height + tex.raw);
       ASSERT(load_status == 0);
+      table_index data2 = table_add_row(content->data);
+      content->data->data[data2.raw] = tex.index_data;
+      content->data->type[data2.raw] = TABLE_TYPE(sprite_type);
+      content->entities->data2[idx.raw] = data2;
     }
 
   }
@@ -334,11 +337,16 @@ bool game_content_test(){
     content->entities->name[idx.raw] = string_table_insert(content->strings, "Enemy");
     table_index data1 = table_add_row(content->data);
     content->data->type[data1.raw] = TABLE_TYPE(physics_type);
-    content->data->data[data1.raw] = table_add_row(content->physics).index_data;
+    table_index p = table_add_row(content->physics);
+    content->data->data[data1.raw] = p.index_data;
     content->entities->data1[idx.raw] = data1;
+    content->physics->vel[p.raw] = vec3_new(-0.2 ,0.2, 0.0);
+    content->physics->loc[p.raw] = vec3_new(0.2,2.9,0.0);
   }
 
-  for(int i = 0; i < 1000; i++){
+  for(int i = 0; i < 10000; i++){
+    int err = glGetError();
+    ASSERT(err == 0);
     for(u64 j = 1; j < content->physics->header.cnt; j++){
       content->physics->loc[j] = vec3_add(content->physics->loc[j], content->physics->vel[j]);
       content->physics->vel[j] = vec3_scale(content->physics->vel[j], 0.95);
@@ -349,12 +357,16 @@ bool game_content_test(){
     glClear(GL_COLOR_BUFFER_BIT);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glEnableClientState(GL_VERTEX_ARRAY);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
     glVertexPointer(2, GL_FLOAT, 0, 0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
     glUseProgram(shader);
     for(u32 j = 0 ; j < content->entities->header.cnt; j++){
       table_index idx = content->entities->data1[j];
+
       if(!table_index_is_valid(idx)){
 	continue;
       }
@@ -364,10 +376,23 @@ bool game_content_test(){
 	ti.index_data = content->data->data[k];
 	if(!table_index_is_valid(ti))
 	  continue;
+
+	table_index idx2 = content->entities->data2[j];
+	if(table_index_is_valid(idx2)){
+	  if(content->data->type[table_raw_index(content->data, idx2)] == TABLE_TYPE(sprite_type)){
+	    table_index sprite_index;
+	    sprite_index.index_data = content->data->data[table_raw_index(content->data, idx2)];
+	    u64 sprite_raw_index = table_raw_index(content->textures, sprite_index);
+	    glActiveTexture(GL_TEXTURE0 + 0);
+	    glBindTexture(GL_TEXTURE_2D, content->textures->gl_ref[sprite_raw_index]);
+	    glUniform1i(glGetUniformLocation(shader, "tex"), 0);
+	  }
+	}
 	u64 k2 = table_raw_index(content->physics, ti);
 	vec3 loc = content->physics->loc[k2];
+	
 	glUniform2f(glGetUniformLocation(shader, "offset"), loc.x, loc.y);
-	glDrawArrays(GL_LINE_LOOP, 0, 33);
+	glDrawArrays(GL_TRIANGLE_FAN, 0, 33);
       }
     }
     glfwSwapBuffers(win);
@@ -377,6 +402,7 @@ bool game_content_test(){
       logd("dt: %fms\n", (float)dt * 0.001);
     iron_usleep(10000);
   }
+  table_print(content->data);
   table_print(content->entities);
   table_print(content->strings);
   table_print(content->physics);
