@@ -53,19 +53,24 @@ void _table_delete(table_header ** _tb){
 static void table_index_split_check(table_header *  table, table_index tidx, u64 * index, u8 * check){
   *index = tidx.index_data & 0x00FFFFFFFFFFFFFFL;
   *check = (u8)(tidx.index_data >> 56);
+  ASSERT(*index > 0);
   ASSERT(table->cnt > *index);
   ASSERT(table->index_check[*index] == *check);
 }
 
 table_index _table_add_row(table_header * table){
+  static u8 check_hash = 123;
   table_def * def = table->def;
   if(table->unused_index_cnt > 0){
-    u64 reuse_index = --(table->unused_index_cnt);
-    table->index_check[reuse_index]++;
+    u64 reuse_index = table->unused_indexes[--(table->unused_index_cnt)];
+    ASSERT(reuse_index > 0);
+    u8 chk = ++check_hash;
+    table->index_check[reuse_index] = chk;
     for(u32 i = 0; i < def->cnt; i++){
       void ** array = ((void *) table) + def->columns[i].offset;
       memset(*array + reuse_index * def->columns[i].size, 0, def->columns[i].size);
     }
+
     return table_index_new(reuse_index, table->index_check[reuse_index]);
   }
   size_t newcnt = table->cnt + 1;
@@ -74,9 +79,10 @@ table_index _table_add_row(table_header * table){
     *array = realloc(*array, def->columns[i].size * newcnt);
     memset(*array + table->cnt * def->columns[i].size, 0, def->columns[i].size);
   }
-  list_push2(table->index_check, table->cnt, 0);
+  u8 chk = ++check_hash;
+  list_push2(table->index_check, table->cnt, chk);
   
-  return table_index_new(table->cnt - 1, 0);
+  return table_index_new(table->cnt - 1, chk);
 }
 
 void _table_remove(table_header * table, table_index t_index){
@@ -142,16 +148,18 @@ void _table_print(table_header * table){
 
   column_padding[def->cnt] = 0;
   {
-    int index_number_pad = snprintf(NULL, 0, "%i ", table->cnt);
-    int index_header_pad = snprintf(NULL, 0, " index");
+    int index_number_pad = snprintf(NULL, 0, "%i(254)", table->cnt);
+    int index_header_pad = snprintf(NULL, 0, "index");
     column_padding[def->cnt] = MAX(index_number_pad, index_header_pad);
+
   }
   int max_pad = 0;
   for(u32 i = 0; i < (def->cnt + 1); i++)
     max_pad = MAX(max_pad, column_padding[i]);
-  char buffer[max_pad];
   
-  printf("|%*s |", column_padding[def->cnt], "index");
+  char buffer[max_pad + 1];
+  int s = snprintf(buffer, max_pad, "index");
+  printf("| %*sindex |", column_padding[def->cnt] - s, "");
   for(u32 i = 0; i < def->cnt; i++){
     int s = snprintf(NULL, 0, " %s : %s ", def->columns[i].name, def->columns[i].type_name);
     printf("%*s",column_padding[i] - s, "");
@@ -160,7 +168,8 @@ void _table_print(table_header * table){
   }
   printf("\n");
   for(u64 j = 0; j < table->cnt; j++){
-    printf("|%*i |", column_padding[def->cnt], j);
+    int s = snprintf(buffer,column_padding[def->cnt] + 1,"%i(%i)", j,table->index_check[j]);
+    printf("| %*s%s |", column_padding[def->cnt] - s,"", buffer);
     for(u32 i = 0; i < def->cnt; i++){
  
       void ** array = ((void *)table) + def->columns[i].offset;

@@ -12,7 +12,6 @@
 #include <iron/time.h>
 #include <iron/utils.h>
 #include <iron/linmath.h>
-#include "game.h"
 
 #include <iron/log.h>
 #include <signal.h>
@@ -21,6 +20,8 @@
 #include <stddef.h>
 #include "data_table.h"
 #include "string_table.h"
+#include "game.h"
+
 void _error(const char * file, int line, const char * msg, ...){
   char buffer[1000];  
   va_list arglist;
@@ -112,14 +113,6 @@ table_def * span3_table_get_def(){
   return &def;
 }
 
-typedef struct{
-  table_header header;
-  vec3 * loc;
-  vec3 * size;
-  vec3 * vel;
-  float * mass;
-}physics_table;
-
 table_def * physics_table_get_def(){
   static table_def def;
   if(def.cnt == 0){
@@ -186,11 +179,13 @@ bool span_table_test(){
     ptable->mass[table_raw_index(ptable, p2)] = 2.0;
     ptable->vel[table_raw_index(ptable, p2)] = vec3_new(0,0.2,0.1);
   }
-  
-  for(size_t i = 0; i < table->header.cnt; i++){
+  table_print(table);
+  table_print(ptable);
+  table_print(dt);
+  for(size_t i = 1; i < table->header.cnt; i++){
     
     u64 idx = table_raw_index(dt, table->index0[i]);
-    u64 idx2 = table_raw_index(dt, table->index1[i]);
+    u64 idx2 = table_raw_index(ptable, table->index1[i]);
     logd("Idx: %i %i %i %i %f\n", i, dt->type[idx], dt->data[idx], idx2, ptable->mass[idx2]);
     TEST_ASSERT(idx2 == 0 || ptable->mass[idx2] > 0);
   }
@@ -232,28 +227,21 @@ bool string_table_test(){
   return TEST_SUCCESS;
 }
 
-typedef struct{
-  table_header header;
-  table_index * name;
-  int * width;
-  int * height;
-  u8 * format;
-  u32 * gl_ref;
-}gl_image_table;
 
-table_def * gl_image_table_get_def(){
+
+table_def * gl_tex_table_get_def(){
   static table_def def;
   if(def.cnt == 0){
     column_def columns[] =
-      {COLUMN_DEF(gl_image_table, name, table_index),
-       COLUMN_DEF(gl_image_table, height, int),
-       COLUMN_DEF(gl_image_table, width, int),
-       COLUMN_DEF(gl_image_table, format, u8),
-       COLUMN_DEF(gl_image_table, gl_ref, u32)
+      {COLUMN_DEF(gl_tex_table, name, table_index),
+       COLUMN_DEF(gl_tex_table, height, int),
+       COLUMN_DEF(gl_tex_table, width, int),
+       COLUMN_DEF(gl_tex_table, format, u8),
+       COLUMN_DEF(gl_tex_table, gl_ref, u32)
       };
     def.columns = iron_clone(columns, sizeof(columns));
     def.cnt = array_count(columns);
-    def.total_size = sizeof(gl_image_table);
+    def.total_size = sizeof(gl_tex_table);
   }
   return &def;
 }
@@ -267,10 +255,22 @@ table_def * gl_image_table_get_def(){
   
   }*/
 
+bool game_content_test(){
+  game_content * content = init_game_content();
+  TEST_ASSERT(content != NULL);
+
+  table_index idx = table_add_row(content->entities);
+  content->entities->name[idx.raw] = string_table_insert(content->strings, "Player");
+  table_print(content->entities);
+  table_print(content->strings);
+  return TEST_SUCCESS;
+}
+
 int main(){
   TEST(data_table_core_test);
   TEST(span_table_test);
   TEST(string_table_test);
+  TEST(game_content_test);
   //TEST(test_line_segment);
   //TEST(test_main_loop);
   //TEST(test_graphics);

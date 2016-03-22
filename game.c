@@ -1,20 +1,35 @@
-#include <stdint.h>
 #include <stdbool.h>
-#include <stdlib.h>
+#include <stdint.h>
 #include <iron/types.h>
+#include "data_table.h"
+#include "uthash.h"
+#include "string_table.h"
+#include<iron/linmath.h>
 #include "game.h"
 
-void game_iteration(controller controller, float dt, game_data * gd){
-  physics_update(gd, dt);
-  ai_update(gd, dt);
-  player_update(gd, controller, dt);
+#include <iron/mem.h>
+#include <iron/utils.h>
+#include <stdio.h>
+
+table_def * entity_table_get_def(){
+  static table_def def;
+  if(def.cnt == 0){
+    column_def columns[] = {COLUMN_DEF(entity_table, name, table_index),
+			    COLUMN_DEF(entity_table, data1, table_index),
+			    COLUMN_DEF(entity_table, data2, table_index),
+			    COLUMN_DEF(entity_table, data3, table_index)};
+			  
+    def.total_size = sizeof(entity_table);
+    def.columns = iron_clone(columns, sizeof(columns));
+    def.cnt = array_count(columns);
+  }
+  return &def;
 }
 
-/*game_floor game_floor_load(asset_manager am, vec3 pos, vec3 size, const char * name){
-  game_floor floor;
-  floor.visual = asset_manager_load(am, name, ".png");
-  floor.physical = asset_manager_load(am, name, ".height.png");
-  floor.pos = pos;
-  floor.size = size;
-  return floor;
-  }*/
+game_content * init_game_content(){
+  game_content * content = alloc0(sizeof(game_content));
+  content->strings = table_new(string_table);
+  content->entities = table_new(entity_table);
+  content->physics = table_new(physics_table);
+  return content;
+}

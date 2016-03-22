@@ -1,5 +1,12 @@
+// depends on iron/types.h
 typedef struct{
-  u64 index_data;
+  union{
+    u64 index_data;
+    struct{
+      u64 raw : 56;
+      u8 check : 8;
+    };
+  };
 }table_index;
 
 extern table_index table_index_default;

@@ -4,7 +4,6 @@
 #include <string.h>
 #include <iron/types.h>
 #include <iron/mem.h>
-#include "game.h"
 #include "hash.h"
 #include "xxhash.h"
 
