@@ -37,7 +37,10 @@ typedef struct _table_header{
 typedef struct{
   table_header header;
   u32 * type;
-  u64 * data;
+  union {
+    u64 * data;
+    table_index * index;
+  };
 }data_table;
 
 
@@ -62,6 +65,7 @@ column_def column_def_new(u32 offset, u32 size, const char * name, void * printe
 #define COLUMN_DEF(type, member, membertype) \
   column_def_new(offsetof(type, member), sizeof(membertype), #member, membertype ## _do_print, #membertype)
 
+#define table_lookup(table, column, index)(table->column + table_raw_index(table, index))
 int float_do_print(char *, int size,  float *);
 int u32_do_print(char *, int size, u32 *);
 int u64_do_print(char *, int size, u64 *);
