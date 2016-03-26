@@ -1,10 +1,10 @@
-OPT = -g3 -O0
+OPT = -g0 -O3
 LIB_SOURCES =  iron/mem.c iron/process.c iron/array.c iron/math.c iron/time.c  iron/log.c iron/fileio.c iron/linmath.c test.c xxhash.c hash.c shader_utils.c data_table.c string_table.c game.c stb_image.c #assets.c
 CC = gcc
 TARGET = glitch
 LIB_OBJECTS =$(LIB_SOURCES:.c=.o)
 LDFLAGS= -L. $(OPT) -Wextra #-lmcheck #-ftlo #setrlimit on linux 
-LIBS= -ldl -lm -lGL -lpthread -lglfw -lGLEW
+LIBS= -ldl -lm -lGL -lpthread -lglfw -lGLEW -lpng
 ALL= $(TARGET)
 CFLAGS = -I. -std=c11 -c $(OPT) -Wall -Wextra -Werror=implicit-function-declaration -Wformat=0 -D_GNU_SOURCE -fdiagnostics-color -Wextra  -Wwrite-strings -fbounds-check -Werror -msse4.2 -mtune=corei7 -DSTB_IMAGE_IMPLEMENTATION #-DDEBUG 
 
