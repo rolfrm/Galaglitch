@@ -34,17 +34,36 @@ bool vec_image_median_test(){
   vec_image * v2 = vec_image_new(3,3);
   for(int j = 0; j < v1->height;j++){
     for(int i = 0; i < v1->width;i++){
-      v1->vectors[i + j * v1->width] = vec2_new(i % 2 + j % 2,1);
+      v1->vectors[i + j * v1->width] = vec2_new(i % 2 + j % 2,i % 2);
     }
   }
-  median_sample(v1,v2);
+  median_sample(v1,v2, 3);
   vec_image_print(v1);
   vec_image_print(v2);
-  ASSERT(vec2_cmp(vec2_new(2,1), v2->vectors[1 + 1 * 3]));
-  ASSERT(vec2_cmp(vec2_new(1,1), v2->vectors[0]));
+  ASSERT(vec2_cmp(vec2_new(2,1), *vec_image_at(v2, 1, 1)));
+  ASSERT(vec2_cmp(vec2_new(0,0), *vec_image_at(v2, 0, 0)));
 
   return TEST_SUCCESS;
 }
+
+
+bool vec_image_average_test(){
+  vec_image * v1 = vec_image_new(5,5);
+  vec_image * v2 = vec_image_new(3,3);
+  *vec_image_at(v1,0,0) = vec2_new(1,1);
+  //*vec_image_at(v1,2,2) = vec2_new(2,2);
+  *vec_image_at(v1,4,4) = vec2_new(-1,-1);
+  average_sample(v1, v2, 3);
+  //vec_image_gauss(v1, v2, 3, 1.0);
+  vec_image_print(v1);
+  vec_image_print(v2);
+  //ASSERT(vec2_cmp(vec2_new(2,1), v2->vectors[1 + 1 * 3]));
+  ASSERT(vec2_cmp(vec2_new(0.25,0.25), v2->vectors[0]));
+  ASSERT(vec2_cmp(vec2_new(-0.25,-0.25), *vec_image_at(v2,2,2)));
+
+  return TEST_SUCCESS;
+}
+
 
 
 bool optical_flow_single_scale_test(){
@@ -170,7 +189,7 @@ bool optical_flow_single_scale_test3(){
 
   char buf[100]; 
   int idx = 0;
-  int minlod = 10;
+  int minlod = 12;
   {
       //optical_flow_init(minlod);
     vec_image * pred_scalespace[minlod];
@@ -196,34 +215,41 @@ bool optical_flow_single_scale_test3(){
       }
     }
 
-    int sizes[15] ={3,3,3,3,5,5,9,9,5,5};
-    for(int i = 8; i >=7 ; i--){
-
+    
+    //int sizes[15] ={3,3,3,3,5,5,9,9,5,5};
+    for(int it3 = 0; it3 < 5; it3++){
+    for(int i = 8; i >=6 ; i--){
+      int scale = minlod - i - 1;
       sprintf(buf, "scalespace/ss1_%i.png", i);
       rgb_image * img1 = load_image(buf);
       sprintf(buf, "scalespace/ss2_%i.png", i);
       rgb_image * img2 = load_image(buf);
       logd("size: %i %i\n", img1->width, img1->height);
       sprintf(buf, "testout2/%i scaleup.png", idx++);
-      save_pred(pred_scalespace[minlod - i - 1], buf);
-      int _i = i;
-      for(int i = 0; i < 10; i++){
-	optical_flow_3(img1, img2, pred_scalespace, minlod - _i - 1, sizes[_i]);
-	
-	compress_scalespace(pred_scalespace, minlod - _i - 1);
-	for(int i = 0; i < 3; i++){
-	  sprintf(buf, "testout2/%i_%i_img.png", idx, i);
-	  save_pred(pred_scalespace[i], buf);
+      save_pred(pred_scalespace[scale], buf);
+      for(int it = 0; it < 10; it++){
+	ASSERT(scale >= 0);
+	optical_flow_3(img1, img2, pred_scalespace, scale, 3);//sizes[i]);
+	//return TEST_SUCCESS;
+	for(int it2 = 0; it2 < 3; it2++){
+	  sprintf(buf, "testout2/%i_%i_img.png", idx, it2);
+	  save_pred(pred_scalespace[it2], buf);
 	}
+	compress_scalespace(pred_scalespace, scale);
+	
 	idx++;
       }
 
       rgb_image * testimg = rgb_image_new(img1->width, img1->height);
       for(float t =0; t <= 1.09; t+= 0.1){
+
 	memset(testimg->pixels,0,testimg->width * testimg->height * sizeof(testimg->pixels[0]));
 	for(int y = 0; y < img1->height; y++){
 	  for(int x = 0; x < img1->width; x++){
-	    vec2 vector = calc_scalespace_vector(pred_scalespace, x, y, _i);
+	    vec2 vector = calc_scalespace_vector(pred_scalespace, x, y, scale);
+	    /*if(t < 0.1){
+	      vec2_print(vector); logd(" %i %i %i\n", x, y, i);
+	      }*/
 	    vec2 pt = vec2_add(vec2_new(x,y), vec2_scale(vector, t));
 	    int idx = pt.x + (int) pt.y * img1->width;
 	    if(pt.x >= 0 && pt.x < img1->width && pt.y >= 0 && pt.y < img1->height)
@@ -233,6 +259,7 @@ bool optical_flow_single_scale_test3(){
 	sprintf(buf, "results/%i_%f.png", idx,t);
 	rgb_image_save(buf, testimg);
       }
+    
       
       /*if(i == 5){
 	visualize_flow(img1, img2,pred,pred);
@@ -242,6 +269,7 @@ bool optical_flow_single_scale_test3(){
       rgb_image_delete(&img2);
       rgb_image_delete(&testimg);
       
+    }
     }
   }
   return TEST_SUCCESS;
@@ -435,4 +463,62 @@ void visualize_flow(rgb_image * im1, rgb_image * im2, vec_image * v1_2, vec_imag
     glfwSwapBuffers(win);
     iron_usleep(10000);
   }
+}
+
+bool compress_scalespace_test(){
+  vec_image * ss[] = {/*vec_image_new(1, 1),*/ vec_image_new(2, 2), vec_image_new(4, 4), vec_image_new(8,8)};
+  vec_image * s_last = ss[array_count(ss) - 1];
+
+  int last_idx = array_count(ss) - 1;
+  {
+    for(int j = 0; j < s_last->height; j++){
+      for(int i = 0; i < s_last->width; i++){
+	*vec_image_at(s_last,i,j) = vec2_new(i,j);
+      }
+    }
+  }
+  save_pred(s_last, "compress_scalespace1.png");  
+  int scalespace_iterations = 1;
+  {
+    const char * ssi = getenv("SCALESPACE_ITERATIONS");
+    if(ssi != NULL){
+      char * endptr = NULL;
+      int v = strtol(ssi, &endptr, 10);
+      if(endptr != NULL)
+	scalespace_iterations = v;
+    }
+  }
+
+
+  for(int i = 0; i < scalespace_iterations; i++)
+    compress_scalespace(ss, last_idx);
+
+  {
+    for(int j = 0; j < s_last->height; j++){
+      for(int i = 0; i < s_last->width; i++){
+	vec2 backcalc = calc_scalespace_vector(ss,i,j,last_idx);
+	ASSERT(vec2_cmpe(backcalc, vec2_new(i,j), 0.001));
+      }
+    }
+  }
+  
+  save_pred(s_last, "compress_scalespace2.png");  
+  logd("\n");
+  vec_image_print(ss[0]);
+  logd("\n");
+  vec_image_print(ss[1]);
+  logd("\n");
+  vec_image_print(ss[2]);
+  logd("\n");
+  return TEST_SUCCESS;
+}
+
+bool window_function_test() {
+  window_function wf = window_function_new(0,0,5,4, 9, 8);
+  int x, y;
+  while(window_function_next(&wf, &x, &y)){
+    logd("%i %i\n", x, y);
+  }
+  ASSERT(window_function_count(&wf) == 5 * 4);
+  return TEST_SUCCESS;
 }

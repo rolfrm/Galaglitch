@@ -93,7 +93,7 @@ void optical_flow_2(const rgb_image * img1, const rgb_image * img2,
   vec_image * pred_avg = vec_image_new(pred->width, pred->height);
 
   //median_sample(pred, pred_median);
-  average_sample(pred, pred_avg);
+  average_sample(pred, pred_avg, 3);
   //average_sample(pred_avg, pred_avg);
   //vec_image_print(pred);
   for(int j = 0; j < h; j++){
@@ -179,45 +179,28 @@ void optical_flow_2(const rgb_image * img1, const rgb_image * img2,
 
 void compress_scalespace(vec_image ** scalespace, int max_scale){
   for(int i = max_scale - 1; i >= 0; i--){
+
     const vec_image * v = scalespace[i];
     const vec_image * v2 = scalespace[i + 1];
     const int w = v->width, h = v->height;
     const int w2 = v2->width, h2 = v2->height;
     const float sw = w2 / (float)w, sh = h2 / (float)h;
     vec_image * avgimg = vec_image_new(w,h);
-    for(int j = 0; j < h; j++){
-      for(int i = 0; i < w; i++){
-	int _j = j * sh, _i = i * sw;
-	// 3x3 box filter~
-	// actually its 2x2.
-	const int jjstart = MAX(0, _j);
-	const int jjend = MIN(h2, _j + 2);
-	const int iistart = MAX(0, _i);
-	const int iiend = MIN(w2, _i + 2);
-	
-	int cnt = (iiend - iistart ) * (jjend - jjstart);
-	float s = 1.0f / (float) cnt;
-	vec2 avg = vec2_new(0,0);
-	for(int jj = jjstart; jj < jjend; jj++){
-	  for(int ii = iistart; ii < iiend; ii++){
-	    avg = vec2_add(avg, vec2_scale(v2->vectors[ii + w2 * jj], s));
-	    
-	  }
-	}
-	v->vectors[i + w * j] = vec2_div(vec2_add(v->vectors[i + w * j], avg), vec2_new(sw,sh));
-	avgimg->vectors[i + w * j] = avg;
-      }
+    average_sample(v2, avgimg, 3);
+    vec2 scale_add(vec2 a, vec2 avg){
+      return vec2_add(a, vec2_div(avg, vec2_new(sw,sh)));
     }
+
+    vec_image_apply2(v, avgimg, (vec_image *)  v, scale_add);
+    
     for(int jj = 0; jj < h2; jj++){
       for(int ii = 0; ii < w2; ii++){
-	int i = ii / sw, j = jj / sh;
-	ASSERT(i >= 0 && i < w && j >= 0 && j < h);
-	vec2 avg = avgimg->vectors[ i + j * w];
-	v2->vectors[ii + w2 * jj] = vec2_sub(v2->vectors[ii + w2 * jj], avg);
+	vec2 avg = *vec_image_at(avgimg, ii /sw, jj / sh);
+	vec2 * v = vec_image_at((vec_image *) v2, ii, jj);
+	*v = vec2_sub(*v, avg);
       }
-    }    
+    }
     vec_image_delete(&avgimg);
-    
   }
 }
 
@@ -241,55 +224,62 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
   const vec_image * pred = pred_scalespace[scale];
   ASSERT(img2->width == w && img2->height == h);
   ASSERT(pred->width == w && pred->height == h);
-  ASSERT(window_size % 2 == 1); // window size must be odd.
+  ASSERT(window_size % 2 == 1);
   const int window_half = window_size / 2;
-
   for(int j = 0; j < h; j++){
     for(int i = 0; i < w; i++){
-      //logd("\n");
       int img1_idx = i + j * w;
-      float error = 1000000;//rgb_error(px1, img2->pixels[img1_idx]);
-
-      vec2 predv = vec2_new(0,0);
-      vec2 current = vec2_new(0,0);
-
+      t_rgb px1 = img1->pixels[img1_idx];
+      float error = 1000000;
+      vec2 current = vec2_new(0, 0);
+      vec2 pred2 = calc_scalespace_vector(pred_scalespace, i, j, scale);
+      {
+	int _i = pred2.x + i;
+	int _j = pred2.y + j;
+	error = rgb_error(px1, img2->pixels[_i + _j * w]);
+      }
+      bool improved = false;
+      //logd(" %i %i %i\n", i, j, scale);
+      
       for(int s = 0; s <= scale; s++){
-	{
-	  int _i = i >> (scale - s);
-	  int _j = j >> (scale - s);
-	  int _w = w >> (scale - s);
-	  int scaleup = 1 << (scale - s);
-	  // get prediction from scale space
-	  predv = vec2_add(predv, vec2_scale(pred_scalespace[s]->vectors[_i + _j * _w], scaleup));
-	  if(i == 10 && j == 10){
-	    vec2_print(predv);
-	    logd(" %i %i %i %i %i \n", _i, _j, s, scale, scaleup);
-	  }
+	if(improved)
+	  break;
+	int upscale = 1 << (scale - s);
+	//logd("s: %i %i\n", s, upscale);
+	int _i = i >> (scale - s);
+	int _j = j >> (scale - s);
+	vec2 predv = calc_scalespace_vector(pred_scalespace, _i, _j, s);
+	predv = vec2_scale(predv, upscale);
+	/*if(i == 5 && j == 5){
+	  logd("Upscale: %i\n", upscale);vec2_print(pred2);vec2_print(predv);logd("\n");
+	  }*/
+
+	window_function window = window_function_new(i - window_half + predv.x,
+						     j - window_half + predv.y,
+						     window_size, window_size,
+						     w, h);
+	int ii, jj;
+	while(window_function_next(&window, &ii, &jj)){
+	  vec2 offset = vec2_new(ii - i, jj - j);
+	  float penalty = vec2_len(vec2_sub(offset, pred2));
+	  int img2_idx = ii + jj * w;
+	  t_rgb px2 = img2->pixels[img2_idx];
+	  float err = rgb_error(px1, px2) + penalty + s;
 	  
-
-	  t_rgb px1 = img1->pixels[img1_idx];
-
-	  const int jjstart = MAX(0, j - window_half + predv.y);
-	  const int jjend = MIN(h, j + 1 + window_half + predv.y);
-	  const int iistart = MAX(0, i - window_half + predv.x);
-	  const int iiend = MIN(w, i + 1 + window_half + predv.x);
-	  for(int jj = jjstart; jj < jjend; jj++){
-	    for(int ii = iistart; ii < iiend; ii++){
-	      vec2 offset = vec2_new(ii - i, jj - j);
-	      float penalty = vec2_sqlen(vec2_sub(offset, predv)) * 1.0;
-	      int img2_idx = ii + jj * w;
-	      t_rgb px2 = img2->pixels[img2_idx];
-	      float err = rgb_error(px1, px2) + penalty + scale;
-	      if(err < error){
-		error = err;
-		current = offset;
-	      }
+	  if(err < error){
+	    if(s < scale){
+	      logd("improved? %f %f %i %i\n", error, err, ii, i);
+	      vec2_print(current);vec2_print(offset);
+	      logd("\n");
 	    }
+	    error = err;
+	    current = offset;
+	    improved = true;
 	  }
 	}
-
-	pred->vectors[img1_idx] = vec2_add(pred->vectors[img1_idx], vec2_sub(current, predv));
       }
+      if(improved)
+	pred->vectors[img1_idx] = vec2_add(pred->vectors[img1_idx], vec2_sub(current, pred2));
     }
   }
 }

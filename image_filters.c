@@ -19,6 +19,83 @@
 #include "image.h"
 #include "image_filters.h"
 
+void vec_image_apply_kernel2(const vec_image * img_in, vec_image * img_out,
+			    int kernel_width, int kernel_height,
+			     vec2 (* f)(vec2 * samples, int x, int y, int w, int h)){
+  ASSERT(kernel_width % 2 == 1 && kernel_height % 2 == 1);
+  vec2 buffer[kernel_width * kernel_height];
+  const int w = img_out->width, h = img_out->height;
+  const int w_in = img_in->width, h_in = img_in->height;
+  const float wscale = (float)w / (float) w_in;
+  const float hscale = (float)h / (float) h_in;
+
+  const int woffset = kernel_width / 2, hoffset = kernel_height / 2;
+  
+  for(int j = 0; j < h; j++){
+    for(int i =0; i < w; i++){
+      const int jjstart1 = ceil(j / hscale) - hoffset;
+      const int jjstart = MAX(0, jjstart1);
+      const int jjend = MIN(h_in,(ceil(j / hscale) + hoffset) + 1);
+      const int iistart1 = ceil(i / wscale) - woffset;
+      const int iistart = MAX(0, iistart1);
+      const int iiend = MIN(w_in,ceil(i / wscale) + woffset + 1);
+      int idx = 0;
+      memset(buffer, 0, sizeof(buffer));
+      for(int jj = jjstart; jj < jjend; jj++){
+	for(int ii = iistart; ii < iiend; ii++){
+	  buffer[idx++] = img_in->vectors[ii + jj * w_in];
+	}
+      }
+      
+      img_out->vectors[i + j * w] = f(buffer, iistart - iistart1, jjstart - jjstart1, iiend - iistart, jjend- jjstart);
+    }
+  }
+}
+
+void vec_image_apply_kernel(const vec_image * img_in, vec_image * img_out,
+			    int kernel_width, int kernel_height,
+			    vec2 (* f)(int item_cnt, vec2 * samples)){
+  vec2 buffer[kernel_width * kernel_height];
+  const int w = img_out->width, h = img_out->height;
+  const int w_in = img_in->width, h_in = img_in->height;
+  const float wscale = (float)w / (float) w_in;
+  const float hscale = (float)h / (float) h_in;
+
+  const int woffset = kernel_width / 2, hoffset = kernel_height / 2;
+  
+  for(int j = 0; j < h; j++){
+    for(int i =0; i < w; i++){
+      const int jjstart1 = ceil(j / hscale) - hoffset;
+      const int jjstart = MAX(0, jjstart1);
+      const int jjend = MIN(h_in,(ceil(j / hscale) + hoffset) + 1);
+      const int iistart1 = ceil(i / wscale) - woffset;
+      const int iistart = MAX(0, iistart1);
+      const int iiend = MIN(w_in,ceil(i / wscale) + woffset + 1);
+      const int cnt = (iiend - iistart) * (jjend - jjstart);
+      int idx = 0;
+      memset(buffer, 0, sizeof(buffer));
+      for(int jj = jjstart; jj < jjend; jj++){
+	for(int ii = iistart; ii < iiend; ii++){
+	  buffer[idx++] = img_in->vectors[ii + jj * w_in];
+	}
+      }
+      
+      img_out->vectors[i + j * w] = f(cnt, buffer);
+    }
+  }
+}
+
+void vec_image_apply2(const vec_image * img1, const vec_image * img2, vec_image * img_out,
+		      vec2 (* f)(vec2 v1, vec2 v2)){
+  ASSERT(img1->width == img2->width);
+  ASSERT(img1->height == img2->height);
+  ASSERT(img1->width == img_out->width);
+  ASSERT(img1->height == img_out->height);
+  const int cnt = img1->width * img1->height;
+  for(int i = 0; i < cnt; i++)
+    img_out->vectors[i] = f(img1->vectors[i], img2->vectors[i]);
+}
+
 vec_image * vec_image_scaleup(const vec_image * v, const int new_width, const int new_height){
   vec_image * newimg = vec_image_new(new_width, new_height);
   const float scalex = v->width / (float)new_width;
@@ -37,71 +114,86 @@ vec_image * vec_image_scaleup(const vec_image * v, const int new_width, const in
   return newimg;
 }
 
-void average_sample(const vec_image * vec_in, vec_image * vec_out){
-  const int w = vec_out->width, h = vec_out->height;
-  const int w_in = vec_in->width, h_in = vec_in->height;
-  const float scale = (float)w / (float) w_in;
-  for(int j = 0; j < h; j++){
-    for(int i =0; i < w; i++){
-      const int jjstart = MAX(0, (j / scale - 1));
-      const int jjend = MIN(h_in,(j / scale + 1) + 1);
-      const int iistart = MAX(0, (i / scale - 1));
-      const int iiend = MIN(w_in,(i / scale) + 1 + 1);
-      const int cnt = (iiend - iistart) * (jjend - jjstart);
-      vec2 avg = vec2_new(0,0);
-      for(int jj = jjstart; jj < jjend; jj++){
-	for(int ii = iistart; ii < iiend; ii++){
-	  vec2 vec = vec_in->vectors[ii + jj * w_in];
-	  avg = vec2_add(avg, vec);
-	}
-      }
-      
-      vec_out->vectors[i + j * w] = vec2_scale(avg, 1.0f / cnt);
-    }
-  }
+static vec2 average_vec_buffer(int cnt, vec2 * samples){
+  vec2 avg = vec2_new(0, 0);
+  for(int i = 0; i < cnt; i++)
+    avg = vec2_add(avg, samples[i]);
+  return vec2_scale(avg, 1.0f / cnt);
 }
 
-void median_sample(const vec_image * vec_in, vec_image * vec_out){
-  const int w = vec_out->width, h = vec_out->height;
-  const int w_in = vec_in->width, h_in = vec_in->height;
-  const float scale = (float)w / (float) w_in;
-  for(int j = 0; j < h; j++){
-    for(int i =0; i < w; i++){
-      const int jjstart = MAX(0, round(j / scale - 2));
-      const int jjend = MIN(h_in, round(j / scale + 2) + 1);
-      const int iistart = MAX(0, round(i / scale - 2));
-      const int iiend = MIN(w_in, round(i / scale) + 2 + 1);
-      const int cnt = (iiend - iistart) * (jjend - jjstart);
-      vec2 items[cnt];
-      i8 matches[cnt];
-      memset(matches,0,sizeof(matches));
-      int vec_i = 0;
-      for(int jj = jjstart; jj < jjend; jj++){
-	for(int ii = iistart; ii < iiend; ii++){
-	  vec2 vec = vec_in->vectors[ii + jj * w_in];
-	  for(int k = 0; k < vec_i; k++){
-	    if(vec2_cmp(vec, items[k])){
-	      matches[k]++;
-	      goto next_vec;
-	    }
-	  }
+void average_sample(const vec_image * vec_in, vec_image * vec_out, int window_size){
+  vec_image_apply_kernel(vec_in, vec_out, window_size, window_size, average_vec_buffer);
+}
 
-	  matches[vec_i] = 1;
-	  items[vec_i++] = vec;
-	next_vec:;
-	}
-      }
-      
-      int max_idx = 0;
-      for(int k = 1; k < vec_i; k++){
-	if(matches[k] > matches[max_idx]){
-	  max_idx = k;
-	}
-      }
-      vec_out->vectors[i + j * w] = items[max_idx];
+static vec2 median_vec_buffer(int cnt, vec2 * samples){
+  vec2 matches[cnt];
+  u8 hits[cnt];
+  int match_cnt = 0;
+  int max_hits = 0;
+  for(int i = 0; i < cnt; i++){
+    int j;
+    for(j = 0; j < match_cnt; j++){
+      if(vec2_cmp(samples[i], matches[j]))
+	break;
+    }
+    if(j == match_cnt){
+      matches[match_cnt] = samples[i];
+      hits[match_cnt] = 1;
+      match_cnt += 1;
+    }else{
+      hits[j] += 1;
+    }
+    if(hits[j] > hits[max_hits])
+      max_hits = j;
+  }
+  return matches[max_hits];
+}
+
+void median_sample(const vec_image * vec_in, vec_image * vec_out, int window_size){
+  vec_image_apply_kernel(vec_in, vec_out, window_size, window_size, median_vec_buffer);
+}
+
+static float gaussian(float d, float sigma){
+  float sqrootpi_2 = 3.54490770181;
+  return expf(-d * d / (2 * sigma * sigma)) *  1.0f / (sigma * sqrootpi_2); 
+}
+
+void vec_image_gauss(const vec_image * in, vec_image * out, int window_size, float sigma){
+  float gauss[window_size * window_size];
+  float whalf = window_size / 2.0f;
+  float sum = 0;
+  for(int j = 0; j < window_size; j++){
+    for(int i = 0; i < window_size; i++){
+      float x = 0.5 + i;
+      float y = 0.5 + j;
+      x = (x - whalf);
+      y = (y - whalf);
+      float d = sqrtf(x * x + y * y);
+
+      gauss[i + j * window_size] = gaussian(d, sigma);
+      sum += gauss[i + j * window_size];
     }
   }
+  for(int i = 0; i < window_size * window_size; i++)
+    gauss[i] /= sum;
+  
+  vec2 gauss_filter(vec2 * samples, int x, int y, int w, int h){
+    int k = 0;
+    vec2 weighted_sum = vec2_new(0, 0);
+    for(int j = y; j < h; j++){
+      for(int i = x; i < w; i++){
+	
+	float weight = gauss[i + j * window_size];
+	vec2 sample = samples[k++];
+	weighted_sum = vec2_add(weighted_sum, vec2_scale(sample, weight));
+      }
+    }
+    
+    return weighted_sum;
+  }
+  vec_image_apply_kernel2(in, out, window_size, window_size, gauss_filter);
 }
+
 
 rgb_image * rgb_image_blur_subsample(rgb_image * img, float scale){
   int width = MAX(1, img->width * scale);

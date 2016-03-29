@@ -37,8 +37,9 @@ void write_png_file(const char *filename, const int width, const int height, con
 
   png_init_io(png, fp);
   u8 * row_pointers[height];
+  logd("saving image.. %i %i\n", width, height);
   for(int i = 0; i < height; i++){
-    row_pointers[i] = (u8 *) (data + i * width * 3);
+    row_pointers[i] = (u8 *) (data + i * width * sizeof(t_rgb));
   }
   // Output is 8bit depth, RGBA format.
   png_set_IHDR(
@@ -108,8 +109,11 @@ rgb_image * load_image(const char * path){
   return iron_clone(&im, sizeof(rgb_image));
 }
 
+t_rgb * rgb_image_at(rgb_image * img, int x, int y){
+  return img->pixels + (x + y * img->width);
+}
 void rgb_image_save(const char * path, const rgb_image * img){
-  write_png_file(path, img->width, img->height, (u8 *) &img->pixels);
+  write_png_file(path, img->width, img->height, (u8 *) img->pixels);
 }
 
 vec_image * vec_image_new(int width, int height){
@@ -134,6 +138,13 @@ bool vec2_cmp(vec2 v1, vec2 v2){
   return v1.x == v2.x && v1.y == v2.y;
 }
 
+static float fcmp(float v1, float v2, float e){
+  return fabs(v1 - v2) < e;
+}
+
+bool vec2_cmpe(vec2 v1, vec2 v2, float e){
+  return fcmp(v1.x, v2.x, e) && fcmp(v1.y, v2.y, e);
+}
 
 void vec_image_print(const vec_image * v){
   for(int j = 0; j < v->height;j++){
@@ -142,4 +153,46 @@ void vec_image_print(const vec_image * v){
     }
     logd("\n");
   }
+}
+
+
+window_function window_function_new(int x, int y, int width, int height, int max_width, int max_height){
+  const int jjstart = MAX(0, y);
+  const int jjend = MIN(max_height, y + height);
+  const int iistart = MAX(0, x);
+  const int iiend = MIN(max_width, x + width);
+  window_function w;
+  w.xstart = iistart;
+  w.ystart = jjstart;
+  w.xend = iiend;
+  w.yend = jjend;
+  w._x = w.xstart;
+  w._y = w.ystart;
+  return w;
+}
+
+bool window_function_next(window_function * w, int * x, int * y){
+  if(w->_y >= w->yend)
+    return false;
+  *x = w->_x;
+  *y = w->_y;
+  w->_x += 1;
+  if(w->_x >= w->xend){
+    w->_y += 1;
+    w->_x = w->xstart;
+  }
+  return true;
+}
+
+void window_function_size(window_function * w, int * width, int * height){
+  if(width != NULL)
+    *width = w->xend - w->xstart;
+  if(height != NULL)
+    *height = w->yend - w->ystart;
+}
+
+int window_function_count(window_function * win){
+  int w, h;
+  window_function_size(win, &w, &h);
+  return w * h;
 }
