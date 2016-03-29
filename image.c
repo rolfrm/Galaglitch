@@ -110,8 +110,12 @@ rgb_image * load_image(const char * path){
 }
 
 t_rgb * rgb_image_at(rgb_image * img, int x, int y){
-  return img->pixels + (x + y * img->width);
+  if(x >= 0 && y >= 0 && x < img->width && y < img->height){
+    return img->pixels + (x + y * img->width);
+  }
+  return NULL;
 }
+
 void rgb_image_save(const char * path, const rgb_image * img){
   write_png_file(path, img->width, img->height, (u8 *) img->pixels);
 }
@@ -172,15 +176,18 @@ window_function window_function_new(int x, int y, int width, int height, int max
 }
 
 bool window_function_next(window_function * w, int * x, int * y){
+  while(w->_x >= w->xend){
+    w->_y += 1;
+    w->_x = w->xstart;
+    if(w->_y >= w->yend)
+      return false;
+  }
   if(w->_y >= w->yend)
-    return false;
+    return false;  
   *x = w->_x;
   *y = w->_y;
   w->_x += 1;
-  if(w->_x >= w->xend){
-    w->_y += 1;
-    w->_x = w->xstart;
-  }
+  
   return true;
 }
 

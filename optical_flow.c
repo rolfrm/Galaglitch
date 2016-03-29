@@ -216,27 +216,31 @@ vec2 calc_scalespace_vector(vec_image ** scalespace, int x, int y, int scale){
   return vector;
 }
 
+#define CLAMP(min, max, value, type) ({type tmp = value; tmp < min ? min : (tmp > max ? max : tmp);})
+
 void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 		    vec_image ** pred_scalespace,
 		    const int scale,
 		    const int window_size){
   const int w = img1->width, h = img1->height;
-  const vec_image * pred = pred_scalespace[scale];
+  vec_image * pred = pred_scalespace[scale];
   ASSERT(img2->width == w && img2->height == h);
   ASSERT(pred->width == w && pred->height == h);
   ASSERT(window_size % 2 == 1);
   const int window_half = window_size / 2;
   for(int j = 0; j < h; j++){
     for(int i = 0; i < w; i++){
-      int img1_idx = i + j * w;
-      t_rgb px1 = img1->pixels[img1_idx];
+      //int img1_idx = i + j * w;
+      t_rgb px1 = *rgb_image_at((rgb_image *)img1, i, j);
       float error = 1000000;
       vec2 current = vec2_new(0, 0);
       vec2 pred2 = calc_scalespace_vector(pred_scalespace, i, j, scale);
       {
-	int _i = pred2.x + i;
-	int _j = pred2.y + j;
-	error = rgb_error(px1, img2->pixels[_i + _j * w]);
+	int _i = CLAMP(0, w-1, pred2.x + i, int);
+	int _j = CLAMP(0, h-1, pred2.y + j, int);
+	
+	error = rgb_error(px1, *rgb_image_at((rgb_image *)img2, _i,  _j));
+	current = pred2;
       }
       bool improved = false;
       //logd(" %i %i %i\n", i, j, scale);
@@ -260,18 +264,14 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 						     w, h);
 	int ii, jj;
 	while(window_function_next(&window, &ii, &jj)){
+	  ASSERT( ii < w && jj < h);
 	  vec2 offset = vec2_new(ii - i, jj - j);
 	  float penalty = vec2_len(vec2_sub(offset, pred2));
-	  int img2_idx = ii + jj * w;
-	  t_rgb px2 = img2->pixels[img2_idx];
+	  //int img2_idx = ii + jj * w;
+	  t_rgb px2 = *rgb_image_at((rgb_image *)img2, ii, jj);//->pixels[img2_idx];
 	  float err = rgb_error(px1, px2) + penalty + s;
 	  
 	  if(err < error){
-	    if(s < scale){
-	      logd("improved? %f %f %i %i\n", error, err, ii, i);
-	      vec2_print(current);vec2_print(offset);
-	      logd("\n");
-	    }
 	    error = err;
 	    current = offset;
 	    improved = true;
@@ -279,7 +279,7 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	}
       }
       if(improved)
-	pred->vectors[img1_idx] = vec2_add(pred->vectors[img1_idx], vec2_sub(current, pred2));
+	*vec_image_at(pred, i, j) = vec2_add(*vec_image_at(pred, i, j), vec2_sub(current, pred2));
     }
   }
 }

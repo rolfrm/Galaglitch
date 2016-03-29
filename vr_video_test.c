@@ -217,8 +217,8 @@ bool optical_flow_single_scale_test3(){
 
     
     //int sizes[15] ={3,3,3,3,5,5,9,9,5,5};
-    for(int it3 = 0; it3 < 5; it3++){
-    for(int i = 8; i >=6 ; i--){
+    for(int it3 = 0; it3 < 1; it3++){
+    for(int i = 8; i >=5 ; i--){
       int scale = minlod - i - 1;
       sprintf(buf, "scalespace/ss1_%i.png", i);
       rgb_image * img1 = load_image(buf);
@@ -227,15 +227,19 @@ bool optical_flow_single_scale_test3(){
       logd("size: %i %i\n", img1->width, img1->height);
       sprintf(buf, "testout2/%i scaleup.png", idx++);
       save_pred(pred_scalespace[scale], buf);
+
       for(int it = 0; it < 10; it++){
 	ASSERT(scale >= 0);
-	optical_flow_3(img1, img2, pred_scalespace, scale, 3);//sizes[i]);
-	//return TEST_SUCCESS;
-	for(int it2 = 0; it2 < 3; it2++){
+
+	optical_flow_3(img1, img2, pred_scalespace, scale, 5);//sizes[i]);
+
+	for(int it2 = 0; it2 < 5; it2++){
 	  sprintf(buf, "testout2/%i_%i_img.png", idx, it2);
 	  save_pred(pred_scalespace[it2], buf);
 	}
-	compress_scalespace(pred_scalespace, scale);
+
+	for(int i = 0; i < 1; i++)
+	  compress_scalespace(pred_scalespace, scale);
 	
 	idx++;
       }
@@ -244,16 +248,14 @@ bool optical_flow_single_scale_test3(){
       for(float t =0; t <= 1.09; t+= 0.1){
 
 	memset(testimg->pixels,0,testimg->width * testimg->height * sizeof(testimg->pixels[0]));
-	for(int y = 0; y < img1->height; y++){
-	  for(int x = 0; x < img1->width; x++){
+	for(int y = 1; y < img1->height - 1; y++){
+	  for(int x = 1; x < img1->width - 1; x++){
 	    vec2 vector = calc_scalespace_vector(pred_scalespace, x, y, scale);
-	    /*if(t < 0.1){
-	      vec2_print(vector); logd(" %i %i %i\n", x, y, i);
-	      }*/
+	    //vector = vec2_scale(vector, 2);
 	    vec2 pt = vec2_add(vec2_new(x,y), vec2_scale(vector, t));
-	    int idx = pt.x + (int) pt.y * img1->width;
-	    if(pt.x >= 0 && pt.x < img1->width && pt.y >= 0 && pt.y < img1->height)
-	      testimg->pixels[idx] = img1->pixels[x + y * img1->width];
+	    t_rgb * px = rgb_image_at(testimg, pt.x, pt.y);
+	    if(px != NULL)
+	      *px = *rgb_image_at(img1, x, y);
 	  }
 	}
 	sprintf(buf, "results/%i_%f.png", idx,t);
@@ -514,11 +516,19 @@ bool compress_scalespace_test(){
 }
 
 bool window_function_test() {
-  window_function wf = window_function_new(0,0,5,4, 9, 8);
+  int startx = 5, starty = 0, window_width = 20, window_height = 20;
+  window_function wf = window_function_new(startx,starty,window_width,window_height, 9, 8);
   int x, y;
+  bool hit_mid = false;
   while(window_function_next(&wf, &x, &y)){
-    logd("%i %i\n", x, y);
+    logd("x:%i y:%i\n", x, y);
+    ASSERT(x < 9);
+    ASSERT(y < 8);
+    ASSERT(x >= startx);
+    ASSERT(y >= starty);
+    hit_mid |=  (x == 7 && y == 7);
   }
-  ASSERT(window_function_count(&wf) == 5 * 4);
+  ASSERT(window_function_count(&wf) == (9 - startx) * (8 - starty));
+  ASSERT(hit_mid);
   return TEST_SUCCESS;
 }
