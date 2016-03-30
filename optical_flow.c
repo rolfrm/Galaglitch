@@ -185,17 +185,18 @@ void compress_scalespace(vec_image ** scalespace, int max_scale){
     const int w = v->width, h = v->height;
     const int w2 = v2->width, h2 = v2->height;
     const float sw = w2 / (float)w, sh = h2 / (float)h;
-    vec_image * avgimg = vec_image_new(w,h);
+
+    vec_image * avgimg = vec_image_new(w, h);
     average_sample(v2, avgimg, 3);
+    //vec_image_gauss(v2, avgimg, 3, 1.0);
     vec2 scale_add(vec2 a, vec2 avg){
-      return vec2_add(a, vec2_div(avg, vec2_new(sw,sh)));
+      return vec2_add(a, vec2_div(avg, vec2_new(sw, sh)));
     }
 
     vec_image_apply2(v, avgimg, (vec_image *)  v, scale_add);
-    
     for(int jj = 0; jj < h2; jj++){
       for(int ii = 0; ii < w2; ii++){
-	vec2 avg = *vec_image_at(avgimg, ii /sw, jj / sh);
+	vec2 avg = *vec_image_at(avgimg, ii / sw, jj / sh);
 	vec2 * v = vec_image_at((vec_image *) v2, ii, jj);
 	*v = vec2_sub(*v, avg);
       }
@@ -203,15 +204,44 @@ void compress_scalespace(vec_image ** scalespace, int max_scale){
     vec_image_delete(&avgimg);
   }
 }
-
 vec2 calc_scalespace_vector(vec_image ** scalespace, int x, int y, int scale){
+  vec2 vector = vec2_new(0, 0);
+  float scaleupx = 1.0, scaleupy = 1.0;
+  for(int i = scale; i >= 0; i--){
+    vec_image * space = scalespace[i];
+    vec2 v = *vec_image_at(space, x, y);
+    vector = vec2_add(vector, vec2_mul(v, vec2_new(scaleupx, scaleupy)));
+    if(i > 0){
+      float dw = space->width / (float) scalespace[i - 1]->width;
+      float dh = space->height / (float) scalespace[i - 1]->height;
+      x = x / dw;
+      y = y / dh;
+      scaleupx *= dw;
+      scaleupy *= dh;
+    }
+      
+  }
+  
+  return vector;
+}
+vec2 calc_scalespace_vector2(vec_image ** scalespace, int x, int y, int scale){
+  float dx = 1.0;
+  float dy = 1.0;
+  float sx = 1.0;
+  float sy = 1.0;
   vec2 vector = vec2_new(0,0);
-  for(int s = 0; s <= scale; s++){
-    int _i = x >> (scale - s);
-    int _j = y >> (scale - s);
-    int _w = scalespace[scale]->width >> (scale - s);
-    int scaleup = 1 << (scale - s);
-    vector = vec2_add(vector, vec2_scale(scalespace[s]->vectors[_i + _j * _w], scaleup));
+  for(int s = scale; s >= 0; s--){
+    int _x = floor(x / sx), _y = floor(y / sy);
+    vec2 * v = vec_image_at(scalespace[s], _x, _y);
+    logd("v: %i: %p %i %i %f %f\n", s, v, _x, _y, sx, sy);
+    vector = vec2_add(vector, vec2_mul(*v, vec2_new(dx * sx, dy * sy)));
+    if(scale > 0){
+      float dw = scalespace[scale]->width / (float)scalespace[scale - 1]->width;
+      float dh = scalespace[scale]->height / (float)scalespace[scale - 1]->height;
+      logd("%f %f\n", dw, dh);
+      sx *= dw;
+      sy *= dh;
+    }
   }
   return vector;
 }
@@ -230,34 +260,35 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
   const int window_half = window_size / 2;
   for(int j = 0; j < h; j++){
     for(int i = 0; i < w; i++){
-      //int img1_idx = i + j * w;
       t_rgb px1 = *rgb_image_at((rgb_image *)img1, i, j);
       float error = 1000000;
       vec2 current = vec2_new(0, 0);
       vec2 pred2 = calc_scalespace_vector(pred_scalespace, i, j, scale);
-      {
+      if(true){
 	int _i = CLAMP(0, w-1, pred2.x + i, int);
 	int _j = CLAMP(0, h-1, pred2.y + j, int);
-	
+	if(i == 10 && j == 10)
+	  logd("_i/_j : %i %i\n", _i, _j);
 	error = rgb_error(px1, *rgb_image_at((rgb_image *)img2, _i,  _j));
 	current = pred2;
       }
       bool improved = false;
-      //logd(" %i %i %i\n", i, j, scale);
       
       for(int s = 0; s <= scale; s++){
 	if(improved)
 	  break;
-	int upscale = 1 << (scale - s);
-	//logd("s: %i %i\n", s, upscale);
-	int _i = i >> (scale - s);
-	int _j = j >> (scale - s);
+	vec_image * scale_img  = pred_scalespace[s];
+	float sx = scale_img->width / (float)w;
+	float sy = scale_img->height / (float)h;
+	int _i = i * sx;
+	int _j = j * sy;
 	vec2 predv = calc_scalespace_vector(pred_scalespace, _i, _j, s);
-	predv = vec2_scale(predv, upscale);
-	/*if(i == 5 && j == 5){
-	  logd("Upscale: %i\n", upscale);vec2_print(pred2);vec2_print(predv);logd("\n");
-	  }*/
-
+	
+	predv = vec2_div(predv, vec2_new(sx,sy));
+	if(i == 10 && j == 10){
+	  vec2_print(predv);logd(" %i %i %f %f %f %f \n",_i, i, predv.x + i, predv.y + j, 1.0 / sx , 1.0 / sy);
+	}
+	
 	window_function window = window_function_new(i - window_half + predv.x,
 						     j - window_half + predv.y,
 						     window_size, window_size,
@@ -267,19 +298,24 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	  ASSERT( ii < w && jj < h);
 	  vec2 offset = vec2_new(ii - i, jj - j);
 	  float penalty = vec2_len(vec2_sub(offset, pred2));
-	  //int img2_idx = ii + jj * w;
-	  t_rgb px2 = *rgb_image_at((rgb_image *)img2, ii, jj);//->pixels[img2_idx];
-	  float err = rgb_error(px1, px2) + penalty + s;
-	  
+	  t_rgb px2 = *rgb_image_at((rgb_image *)img2, ii, jj);
+	  float err = rgb_error(px1, px2) + penalty * 0.5 + s;
+	  //if(i == 10 && j == 10)
+	  //  logd("i/j: %i %i \n", ii, jj);
 	  if(err < error){
+	    if(s < scale && i == 10 && j == 10)
+	      logd("Improvement: %f %f %i\n", err, error, s);
 	    error = err;
 	    current = offset;
 	    improved = true;
 	  }
 	}
       }
-      if(improved)
-	*vec_image_at(pred, i, j) = vec2_add(*vec_image_at(pred, i, j), vec2_sub(current, pred2));
+      if(improved){
+	vec2 change = vec2_sub(current, pred2);
+	*vec_image_at(pred, i, j) = vec2_add(*vec_image_at(pred, i, j), change);
+	pred2 = vec2_add(change, pred2);
+      }
     }
   }
 }

@@ -240,7 +240,7 @@ bool optical_flow_single_scale_test3(){
 
 	for(int i = 0; i < 1; i++)
 	  compress_scalespace(pred_scalespace, scale);
-	
+	//memset(pred_scalespace[scale]->vectors, 0, pred_scalespace[scale]->width* pred_scalespace[scale]->height * sizeof(vec2));
 	idx++;
       }
 
@@ -468,50 +468,76 @@ void visualize_flow(rgb_image * im1, rgb_image * im2, vec_image * v1_2, vec_imag
 }
 
 bool compress_scalespace_test(){
-  vec_image * ss[] = {/*vec_image_new(1, 1),*/ vec_image_new(2, 2), vec_image_new(4, 4), vec_image_new(8,8)};
-  vec_image * s_last = ss[array_count(ss) - 1];
+  int ws[] = {5, 9, 14, 3, 21, 6, 10,18, 190}; //18 / 9, 10 / 5
+  int hs[] = {7, 10, 16, 11, 23, 3, 5,9, 65};
+  vec_image * levels[10];
+  for(u32 it = 0; it < array_count(ws); it++){
+    int cnt = 0;
+    int w = ws[it];
+    int h = hs[it];
+    { // calc scalespace
+      float _w = w;
+      float _h = h;
+      while(_w >= 1.0 && _h >= 1.0){
+	levels[cnt++] = vec_image_new(_w, _h);
+	_w *= 0.5;
+	_h *= 0.5;
+	//logd("level: %i %i\n", levels[cnt - 1]->width, levels[cnt - 1]->height);
+      }
+      vec_image * levels2[cnt];
+      for(int i = 0; i < cnt; i++)
+	levels2[i] = levels[cnt - i - 1];
+      for(int i = 0; i < cnt; i++)
+	levels[i] = levels2[i];
+    }
+    
+    vec_image * s_last = levels[cnt - 1];
 
-  int last_idx = array_count(ss) - 1;
-  {
-    for(int j = 0; j < s_last->height; j++){
-      for(int i = 0; i < s_last->width; i++){
-	*vec_image_at(s_last,i,j) = vec2_new(i,j);
+    int last_idx = cnt - 1;
+    {
+      for(int j = 0; j < s_last->height; j++){
+	for(int i = 0; i < s_last->width; i++){
+	  *vec_image_at(s_last,i,j) = vec2_new(i,j);
+	}
       }
     }
-  }
-  save_pred(s_last, "compress_scalespace1.png");  
-  int scalespace_iterations = 1;
-  {
-    const char * ssi = getenv("SCALESPACE_ITERATIONS");
-    if(ssi != NULL){
-      char * endptr = NULL;
-      int v = strtol(ssi, &endptr, 10);
-      if(endptr != NULL)
-	scalespace_iterations = v;
+    
+    int scalespace_iterations = 5;
+    {
+      const char * ssi = getenv("SCALESPACE_ITERATIONS");
+      if(ssi != NULL){
+	char * endptr = NULL;
+	int v = strtol(ssi, &endptr, 10);
+	if(endptr != NULL)
+	  scalespace_iterations = v;
+      }
     }
-  }
+    
 
-
-  for(int i = 0; i < scalespace_iterations; i++)
-    compress_scalespace(ss, last_idx);
-
-  {
+    for(int i = 0; i < scalespace_iterations; i++)
+      compress_scalespace(levels, last_idx);
+    //vec_image_print(levels[2]);logd("\n");
+    //vec_image_print(levels[1]);logd("\n");
+    //vec_image_print(levels[0]);logd("\n");
+    /*for(int j = 0; j < s_last->height; j++){
+      for(int i = 0; i < s_last->width; i++){
+	vec2 backcalc = calc_scalespace_vector(levels,i,j,last_idx);
+	vec2_print(backcalc);logd("\n");
+      }
+      logd("\n");
+      }*/
     for(int j = 0; j < s_last->height; j++){
       for(int i = 0; i < s_last->width; i++){
-	vec2 backcalc = calc_scalespace_vector(ss,i,j,last_idx);
+	vec2 backcalc = calc_scalespace_vector(levels,i,j,last_idx);
+	//vec2_print(backcalc);logd("\n");
 	ASSERT(vec2_cmpe(backcalc, vec2_new(i,j), 0.001));
       }
     }
+
+    for(int i = 0; i < cnt; i++)
+      vec_image_delete(&levels[i]);
   }
   
-  save_pred(s_last, "compress_scalespace2.png");  
-  logd("\n");
-  vec_image_print(ss[0]);
-  logd("\n");
-  vec_image_print(ss[1]);
-  logd("\n");
-  vec_image_print(ss[2]);
-  logd("\n");
   return TEST_SUCCESS;
 }
 
@@ -521,7 +547,7 @@ bool window_function_test() {
   int x, y;
   bool hit_mid = false;
   while(window_function_next(&wf, &x, &y)){
-    logd("x:%i y:%i\n", x, y);
+    //logd("x:%i y:%i\n", x, y);
     ASSERT(x < 9);
     ASSERT(y < 8);
     ASSERT(x >= startx);

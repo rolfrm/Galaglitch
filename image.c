@@ -110,9 +110,8 @@ rgb_image * load_image(const char * path){
 }
 
 t_rgb * rgb_image_at(rgb_image * img, int x, int y){
-  if(x >= 0 && y >= 0 && x < img->width && y < img->height){
+  if(x >= 0 && y >= 0 && x < img->width && y < img->height)
     return img->pixels + (x + y * img->width);
-  }
   return NULL;
 }
 
@@ -134,8 +133,9 @@ void vec_image_delete(vec_image ** v){
 }
 
 vec2 * vec_image_at(vec_image * img, int x, int y){
-  ASSERT(x >= 0 && x < img->width && y >= 0 && y < img->height);
-  return img->vectors + (x + y * img->width);
+  if(x >= 0 && x < img->width && y >= 0 && y < img->height)
+    return img->vectors + (x + y * img->width);
+  return NULL;
 }
 
 bool vec2_cmp(vec2 v1, vec2 v2){
