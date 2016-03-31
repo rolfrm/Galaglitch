@@ -288,6 +288,14 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	if(i == 10 && j == 10){
 	  vec2_print(predv);logd(" %i %i %f %f %f %f \n",_i, i, predv.x + i, predv.y + j, 1.0 / sx , 1.0 / sy);
 	}
+
+	//if(predv.x < 0 || predv.y < 0 || predv.x >= w || predv.y >= h){
+	  if(error > 400){
+	    error = 400;
+	    current = predv;
+	    improved = true;
+	  }
+	  //}
 	
 	window_function window = window_function_new(i - window_half + predv.x,
 						     j - window_half + predv.y,
@@ -299,7 +307,7 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	  vec2 offset = vec2_new(ii - i, jj - j);
 	  float penalty = vec2_len(vec2_sub(offset, pred2));
 	  t_rgb px2 = *rgb_image_at((rgb_image *)img2, ii, jj);
-	  float err = rgb_error(px1, px2) + penalty * 0.5 + s;
+	  float err = rgb_error(px1, px2) + penalty * 0.15 + s * 0.5;
 	  //if(i == 10 && j == 10)
 	  //  logd("i/j: %i %i \n", ii, jj);
 	  if(err < error){

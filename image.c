@@ -80,7 +80,7 @@ float rgb_error(t_rgb px1, t_rgb px2){
   float  r = px1.r - px2.r;
   float g = px1.g - px2.g;
   float b = px1.b - px2.b;
-  return r*r + g*g + b*b;
+  return sqrtf(r*r + g*g + b*b);
 }
 
 rgb_image * rgb_image_new(int width, int height){

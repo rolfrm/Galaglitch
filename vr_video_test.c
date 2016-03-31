@@ -183,6 +183,20 @@ bool test_visualize_flow(){
 /*bool test_scalespace_calc(){
   vec_image * scalespace[] = {vec_image_new(16,16), vec_image_new(32,32)};
   }*/
+//vec2 calc_scalespace_vector(vec_image ** scalespace, int x, int y, int scale)
+void scalespace_print(vec_image ** scalespace, int scale){
+  vec_image * img = scalespace[scale];
+  vec_image * img2 = vec_image_new(img->width, img->height);
+  for(int j = 0; j < img2->height; j++){
+    for(int i = 0; i < img2->width; i++){
+      *vec_image_at(img2, i,j) = calc_scalespace_vector(scalespace, i, j, scale);
+    }
+  }
+  vec_image_print(img2);
+  save_pred(img2, "testest.png");
+  vec_image_delete(&img2);
+  
+}
 
 
 bool optical_flow_single_scale_test3(){
@@ -218,7 +232,7 @@ bool optical_flow_single_scale_test3(){
     
     //int sizes[15] ={3,3,3,3,5,5,9,9,5,5};
     for(int it3 = 0; it3 < 1; it3++){
-    for(int i = 8; i >=5 ; i--){
+    for(int i = 8; i >=3 ; i--){
       int scale = minlod - i - 1;
       sprintf(buf, "scalespace/ss1_%i.png", i);
       rgb_image * img1 = load_image(buf);
@@ -228,7 +242,7 @@ bool optical_flow_single_scale_test3(){
       sprintf(buf, "testout2/%i scaleup.png", idx++);
       save_pred(pred_scalespace[scale], buf);
 
-      for(int it = 0; it < 10; it++){
+      for(int it = 0; it < 20; it++){
 	ASSERT(scale >= 0);
 
 	optical_flow_3(img1, img2, pred_scalespace, scale, 5);//sizes[i]);
@@ -238,12 +252,11 @@ bool optical_flow_single_scale_test3(){
 	  save_pred(pred_scalespace[it2], buf);
 	}
 
-	for(int i = 0; i < 1; i++)
+	for(int i = 0; i < 20; i++)
 	  compress_scalespace(pred_scalespace, scale);
 	//memset(pred_scalespace[scale]->vectors, 0, pred_scalespace[scale]->width* pred_scalespace[scale]->height * sizeof(vec2));
 	idx++;
       }
-
       rgb_image * testimg = rgb_image_new(img1->width, img1->height);
       for(float t =0; t <= 1.09; t+= 0.1){
 
@@ -272,6 +285,7 @@ bool optical_flow_single_scale_test3(){
       rgb_image_delete(&testimg);
       
     }
+    scalespace_print(pred_scalespace, 8);
     }
   }
   return TEST_SUCCESS;
