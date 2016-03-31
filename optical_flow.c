@@ -249,7 +249,7 @@ vec2 calc_scalespace_vector2(vec_image ** scalespace, int x, int y, int scale){
 #define CLAMP(min, max, value, type) ({type tmp = value; tmp < min ? min : (tmp > max ? max : tmp);})
 
 void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
-		    vec_image ** pred_scalespace,
+		    vec_image ** pred_scalespace, vec_image * error_img,
 		    const int scale,
 		    const int window_size){
   const int w = img1->width, h = img1->height;
@@ -290,8 +290,8 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	}
 
 	//if(predv.x < 0 || predv.y < 0 || predv.x >= w || predv.y >= h){
-	  if(error > 400){
-	    error = 400;
+	  if(error > 200){
+	    error = 200;
 	    current = predv;
 	    improved = true;
 	  }
@@ -324,6 +324,7 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	*vec_image_at(pred, i, j) = vec2_add(*vec_image_at(pred, i, j), change);
 	pred2 = vec2_add(change, pred2);
       }
+      *vec_image_at(error_img, i, j) = vec2_new(error,0);
     }
   }
 }

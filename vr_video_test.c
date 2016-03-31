@@ -234,22 +234,22 @@ bool optical_flow_single_scale_test3(){
     for(int it3 = 0; it3 < 1; it3++){
     for(int i = 8; i >=3 ; i--){
       int scale = minlod - i - 1;
-      sprintf(buf, "scalespace/ss1_%i.png", i);
-      rgb_image * img1 = load_image(buf);
       sprintf(buf, "scalespace/ss2_%i.png", i);
+      rgb_image * img1 = load_image(buf);
+      sprintf(buf, "scalespace/ss1_%i.png", i);
       rgb_image * img2 = load_image(buf);
       logd("size: %i %i\n", img1->width, img1->height);
       sprintf(buf, "testout2/%i scaleup.png", idx++);
       save_pred(pred_scalespace[scale], buf);
-
+      vec_image * error = vec_image_new(img1->width, img1->height);
       for(int it = 0; it < 20; it++){
 	ASSERT(scale >= 0);
 
-	optical_flow_3(img1, img2, pred_scalespace, scale, 5);//sizes[i]);
+	optical_flow_3(img1, img2, pred_scalespace, error, scale, 5);//sizes[i]);
 
 	for(int it2 = 0; it2 < 5; it2++){
 	  sprintf(buf, "testout2/%i_%i_img.png", idx, it2);
-	  save_pred(pred_scalespace[it2], buf);
+	  save_error(error, buf);
 	}
 
 	for(int i = 0; i < 20; i++)
@@ -261,8 +261,10 @@ bool optical_flow_single_scale_test3(){
       for(float t =0; t <= 1.09; t+= 0.1){
 
 	memset(testimg->pixels,0,testimg->width * testimg->height * sizeof(testimg->pixels[0]));
-	for(int y = 1; y < img1->height - 1; y++){
-	  for(int x = 1; x < img1->width - 1; x++){
+	for(int y = 0; y < img1->height; y++){
+	  for(int x = 0; x < img1->width; x++){
+	    if(vec_image_at(error,x,y)->x > 5)
+	      continue;
 	    vec2 vector = calc_scalespace_vector(pred_scalespace, x, y, scale);
 	    //vector = vec2_scale(vector, 2);
 	    vec2 pt = vec2_add(vec2_new(x,y), vec2_scale(vector, t));
@@ -307,6 +309,9 @@ bool optical_flow_single_scale_test2(){
       vec_image * npred = vec_image_scaleup(pred, img1->width, img1->height);
       vec_image_delete(&pred);
       pred = npred;
+
+
+      
       logd("size: %i %i\n", pred->width, pred->height);
       sprintf(buf, "testout2/%i scaleup.png", idx++);
       save_pred(pred, buf);
@@ -375,6 +380,19 @@ void construct_scalespace(rgb_image ** ss, rgb_image * img, int count){
     img = rgb_image_blur_subsample(img, 0.5);
     ss[i] = img;
   }
+}
+
+void save_error(const vec_image * error, const char * path){
+  rgb_image * out = rgb_image_new(error->width,error->height);
+  for(int i = 0; i < error->width * error->height; i++){
+    vec2 offset = error->vectors[i];
+    if(offset.x > 255){
+      offset.y = 255;
+      offset.x = 255;
+    }
+    out->pixels[i] = (t_rgb){offset.x,offset.y,offset.y};    
+  }
+  rgb_image_save(path, out);
 }
 
 vec2 save_pred(const vec_image * pred, const char * path){

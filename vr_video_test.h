@@ -10,5 +10,5 @@ void optical_flow_init();
 bool compress_scalespace_test();
 void construct_scalespace(rgb_image ** ss, rgb_image * img, int count);
 vec2 save_pred(const vec_image * pred, const char * path);
-
+void save_error(const vec_image * error, const char * path);
 void visualize_flow(rgb_image * im1, rgb_image * im2, vec_image * v1_2, vec_image * v2_1);
