@@ -188,9 +188,13 @@ void compress_scalespace(vec_image ** scalespace, int max_scale){
 
     vec_image * avgimg = vec_image_new(w, h);
     average_sample(v2, avgimg, 3);
+    //for(int i = 0; i < w * h; i++){
+    //  avgimg->vectors[i] = vec2_round(avgimg->vectors[i]);
+    //}
     //vec_image_gauss(v2, avgimg, 3, 1.0);
     vec2 scale_add(vec2 a, vec2 avg){
-      return vec2_add(a, vec2_div(avg, vec2_new(sw, sh)));
+      vec2 r = vec2_add(a, vec2_div(avg, vec2_new(sw, sh)));
+      return r;
     }
 
     vec_image_apply2(v, avgimg, (vec_image *)  v, scale_add);
@@ -246,10 +250,8 @@ vec2 calc_scalespace_vector2(vec_image ** scalespace, int x, int y, int scale){
   return vector;
 }
 
-#define CLAMP(min, max, value, type) ({type tmp = value; tmp < min ? min : (tmp > max ? max : tmp);})
-
 void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
-		    vec_image ** pred_scalespace, vec_image * error_img,
+		    vec_image ** pred_scalespace, float_image * error_img,
 		    const int scale,
 		    const int window_size){
   const int w = img1->width, h = img1->height;
@@ -263,38 +265,39 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
       t_rgb px1 = *rgb_image_at((rgb_image *)img1, i, j);
       float error = 1000000;
       vec2 current = vec2_new(0, 0);
-      vec2 pred2 = calc_scalespace_vector(pred_scalespace, i, j, scale);
+      vec2 pred2 = vec2_round(calc_scalespace_vector(pred_scalespace, i, j, scale));
       if(true){
 	int _i = CLAMP(0, w-1, pred2.x + i, int);
 	int _j = CLAMP(0, h-1, pred2.y + j, int);
-	if(i == 10 && j == 10)
-	  logd("_i/_j : %i %i\n", _i, _j);
+	//if(i == 10 && j == 10)
+	//  logd("_i/_j : %i %i\n", _i, _j);
 	error = rgb_error(px1, *rgb_image_at((rgb_image *)img2, _i,  _j));
 	current = pred2;
+
+	if( i == w /2 && j == h / 2){
+	  vec2_print(pred2); 
+	  logd("   start: %i %i %f\n", _i, _j, error);
+	}
       }
       bool improved = false;
       
       for(int s = 0; s <= scale; s++){
-	if(improved)
-	  break;
+
 	vec_image * scale_img  = pred_scalespace[s];
 	float sx = scale_img->width / (float)w;
 	float sy = scale_img->height / (float)h;
 	int _i = i * sx;
 	int _j = j * sy;
-	vec2 predv = calc_scalespace_vector(pred_scalespace, _i, _j, s);
+	vec2 predv = vec2_round(calc_scalespace_vector(pred_scalespace, _i, _j, s));
 	
+	  
 	predv = vec2_div(predv, vec2_new(sx,sy));
-	if(i == 10 && j == 10){
+	if(false && i == 10 && j == 10){
 	  vec2_print(predv);logd(" %i %i %f %f %f %f \n",_i, i, predv.x + i, predv.y + j, 1.0 / sx , 1.0 / sy);
 	}
 
 	//if(predv.x < 0 || predv.y < 0 || predv.x >= w || predv.y >= h){
-	  if(error > 200){
-	    error = 200;
-	    current = predv;
-	    improved = true;
-	  }
+	
 	  //}
 	
 	window_function window = window_function_new(i - window_half + predv.x,
@@ -307,24 +310,39 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	  vec2 offset = vec2_new(ii - i, jj - j);
 	  float penalty = vec2_len(vec2_sub(offset, pred2));
 	  t_rgb px2 = *rgb_image_at((rgb_image *)img2, ii, jj);
-	  float err = rgb_error(px1, px2) + penalty * 0.15 + s * 0.5;
+	  float err = sqrtf(rgb_error(px1, px2)) + penalty * 0.1 + s * 0.1;
 	  //if(i == 10 && j == 10)
 	  //  logd("i/j: %i %i \n", ii, jj);
 	  if(err < error){
-	    if(s < scale && i == 10 && j == 10)
+	    if(false && i == 10 && j == 10)
 	      logd("Improvement: %f %f %i\n", err, error, s);
 	    error = err;
 	    current = offset;
 	    improved = true;
 	  }
 	}
+	if( i == w /2 && j == h / 2){
+	  vec2_print(current); vec2_print(predv);
+	  logd("%i %i %f\n", i, j, error);
+	}
+	//if(s == scale)
+	//  logd("%f\n", error);
+	if(s == scale && error > 5){
+	  logd("This happens..\n");
+	  error = 5;
+	  current = predv;
+	  improved = true;
+	}
+      
+	*float_image_at(error_img, i, j) = error;
+	if(improved){
+
+	  vec2 change = vec2_sub(current, pred2);
+	  *vec_image_at(pred, i, j) = vec2_add(*vec_image_at(pred, i, j), change);
+	  pred2 = vec2_add(change, pred2);
+	  break;
+	}
       }
-      if(improved){
-	vec2 change = vec2_sub(current, pred2);
-	*vec_image_at(pred, i, j) = vec2_add(*vec_image_at(pred, i, j), change);
-	pred2 = vec2_add(change, pred2);
-      }
-      *vec_image_at(error_img, i, j) = vec2_new(error,0);
     }
   }
 }

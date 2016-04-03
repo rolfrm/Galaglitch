@@ -37,7 +37,6 @@ void write_png_file(const char *filename, const int width, const int height, con
 
   png_init_io(png, fp);
   u8 * row_pointers[height];
-  logd("saving image.. %i %i\n", width, height);
   for(int i = 0; i < height; i++){
     row_pointers[i] = (u8 *) (data + i * width * sizeof(t_rgb));
   }
@@ -92,6 +91,12 @@ rgb_image * rgb_image_new(int width, int height){
   return iron_clone(&im, sizeof(im));
 }
 
+rgb_image * rgb_image_clone(rgb_image * base){
+  rgb_image * img = iron_clone(base, sizeof(base[0]));
+  img->pixels = iron_clone(base->pixels, img->width * img->height * sizeof(img->pixels[0]));
+  return img;
+}
+
 void rgb_image_delete(rgb_image ** img_loc){
   rgb_image * img = *img_loc;
   *img_loc = NULL;
@@ -115,9 +120,26 @@ t_rgb * rgb_image_at(rgb_image * img, int x, int y){
   return NULL;
 }
 
+t_rgb rgb_image_get(const rgb_image * img, int x, int y){
+  ASSERT(x >= 0 && y >= 0 && x < img->width && y < img->height);
+  return img->pixels[x + y * img->width];
+}
+
 void rgb_image_save(const char * path, const rgb_image * img){
   write_png_file(path, img->width, img->height, (u8 *) img->pixels);
 }
+
+void rgb_image_print(const rgb_image * img){
+  for(int j = 0; j < img->height; j++){
+    for(int i = 0; i < img->width; i++){
+      t_rgb color = rgb_image_get(img, i, j);
+      logd("%2x%2x%2x ", color.r, color.g, color.b);
+    }
+    logd("\n");
+  }	
+}
+
+// vec image
 
 vec_image * vec_image_new(int width, int height){
   vec_image * out = alloc0(sizeof(vec_image) + width * height * sizeof(vec2));
@@ -159,7 +181,78 @@ void vec_image_print(const vec_image * v){
   }
 }
 
+// float image
+float_image * float_image_new(int width, int height){
+  float_image im;
+  im.width = width;
+  im.height = height;
+  im.pixels = alloc0(width * height * sizeof(im.pixels[0]));
+  return iron_clone(&im, sizeof(im));
+}
 
+void float_image_delete(float_image ** img){
+  dealloc(*img);
+  *img = NULL;
+}
+
+float * float_image_at(float_image * img, int x, int y){
+  if(x >= 0 && x < img->width && y >= 0 && y < img->height)
+    return img->pixels + (x + y * img->width);
+  return NULL;  
+}
+
+float float_image_get(const float_image * img, int x, int y){
+  ASSERT(x >= 0 && x < img->width && y >= 0 && y < img->height);
+  return img->pixels[x + y * img->width];
+}
+
+void float_image_print(const float_image * v){
+  for(int j = 0; j < v->height;j++){
+    for(int i = 0; i < v->width;i++){
+      logd("%4f ", float_image_get(v, i, j)); 
+    }
+    logd("\n");
+  }
+}
+
+void float_image_save(const char * path, const float_image * v){
+  rgb_image * img = rgb_image_new(v->width, v->height);
+  const int size = v->width * v->height;
+  for(int i = 0; i < size; i++){
+    u8 value = (u8) CLAMP(0.0f, 255.0f, 255 * v->pixels[i], float);
+    img->pixels[i] = t_rgb_new(value, value, value);
+  }
+  rgb_image_save(path, img);
+  rgb_image_delete(&img);
+}
+
+void float_image_normalize(float_image * img){
+  const int size = img->width * img->height;
+  float min = 1000000;
+  float max = -1000000;
+  for(int i = 0; i < size; i++){
+    float v = img->pixels[i];
+    min = MIN(v, min);
+    max = MAX(v, max);
+  }
+  
+  float span = max - min;
+  if(span > 0.0f){
+    for(int i = 0; i < size; i++){
+      float v = img->pixels[i];
+      v = (v - min) / span;
+      img->pixels[i] = v;
+    }
+  }else{
+    for(int i = 0; i < size; i++)
+      img->pixels[i] = 0;
+  }
+    
+}
+
+
+
+// window function
 window_function window_function_new(int x, int y, int width, int height, int max_width, int max_height){
   const int jjstart = MAX(0, y);
   const int jjend = MIN(max_height, y + height);

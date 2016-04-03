@@ -821,26 +821,17 @@ bool gpu_octree_test(){
     }*/
   return TEST_SUCCESS;
 }
-bool vec_image_average_test();
-bool window_function_test();
+bool vr_video_test();
+//bool test_distance_field();
 int main(int argc, const char ** argv){
+  
   set_test_opt(argv,argc);
   TEST(data_table_core_test);
   TEST(span_table_test);
   TEST(string_table_test);
   //TEST(game_content_test);
   TEST(gpu_octree_test);
-  TEST(vec_image_average_test);
-  TEST(vec_image_median_test);
-  TEST(window_function_test);
-  TEST(compress_scalespace_test);
-  //TEST(optical_flow_test);
-  //TEST(optical_flow_single_scale_test);
-  //TEST(scale_vec_test);
-  //TEST(test_visualize_flow);
-  //TEST(optical_flow_single_scale_test2);
-  TEST(optical_flow_single_scale_test3);
-
+  TEST(vr_video_test);
   //TEST(test_line_segment);
   //TEST(test_main_loop);
   //TEST(test_graphics);

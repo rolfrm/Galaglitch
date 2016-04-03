@@ -266,3 +266,61 @@ rgb_image * rgb_image_subsample(rgb_image * img, float scale){
   imgout.height = height;
   return iron_clone(&imgout, sizeof(imgout));
 }
+
+void rgb_image_conv_kernel(const rgb_image * src, rgb_image * dst, const float_image * kernel, bool normalize){
+  //ASSERT(src->width == dst->width);
+  //ASSERT(src->height == dst->height);
+  const int w = dst->width, h = dst->height;
+  const int w2 = src->width, h2 = src->height;
+  const int kw = kernel->width, kh = kernel->height;
+  const int kw_half = kw / 2, kh_half = kh / 2;
+  const float sw = w2 / (float)w, sh = h2 / (float)h;
+  window_function win1 = window_function_new(0, 0, w, h, w, h);
+  int i, j;
+  
+  while(window_function_next(&win1, &i, &j)){
+    int _i = i * sw, _j = j * sh;
+    window_function win2 = window_function_new(_i - kw_half, _j - kh_half, kw, kh, w2, h2);
+    float sum = 0.0;
+    int ki, kj;
+    t_rgb * col = rgb_image_at(dst, i, j);
+    
+    float r = 0, g = 0, b = 0;
+    while(window_function_next(&win2, &ki, &kj)){
+      float w = float_image_get(kernel, ki - _i + kw_half, kj - _j + kh_half);
+      t_rgb rgb = rgb_image_get(src, ki, kj);
+      r += rgb.r * w;
+      g += rgb.g * w;
+      b += rgb.b * w;
+      sum += w;
+    }
+    
+    if(normalize){
+      r /= sum;
+      g /= sum;
+      b /= sum;
+    }
+    
+    r = CLAMP(0, 255, r + col->r, float);
+    g = CLAMP(0, 255, g + col->g, float);
+    b = CLAMP(0, 255, b + col->b, float);
+    
+    *col = t_rgb_new(r, g, b);
+  }
+  
+}
+
+void float_image_gaussian_kernel(float_image * kernel, float sigma){
+  const int w = kernel->width, h = kernel->height;
+  for(int j = 0; j < h; j++){
+    for(int i = 0; i < w; i++){
+      float x = i;
+      float y = j;
+      x = (x - w / 2);
+      y = (y - h / 2);
+      float d = sqrtf(x * x + y * y);
+
+      *float_image_at(kernel, i, j) = gaussian(d, sigma);
+    }
+  }
+}

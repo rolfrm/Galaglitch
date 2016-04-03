@@ -198,29 +198,30 @@ void scalespace_print(vec_image ** scalespace, int scale){
   
 }
 
-
+void create_scalespaces(int n);
 bool optical_flow_single_scale_test3(){
-
+  create_scalespaces(4);
+  const int sub_space_cnt = 0;
+  const int img_scale_cnt = 4;
   char buf[100]; 
   int idx = 0;
-  int minlod = 12;
+
   {
-      //optical_flow_init(minlod);
-    vec_image * pred_scalespace[minlod];
-    memset(pred_scalespace, 0, sizeof(pred_scalespace));
+    vec_image * scalespace[img_scale_cnt + sub_space_cnt];
+    memset(scalespace, 0, sizeof(scalespace));
     {
-      rgb_image * img = load_image("scalespace/ss1_1.png");
+      sprintf(buf, "scalespace2_1/%i.png", img_scale_cnt - 1);
+      rgb_image * img = load_image(buf);
       int w = img->width;
       int h = img->height;
       rgb_image_delete(&img);
-      for(int i = 1; i < minlod; i++){
-	printf("lod: %i (%i %i)\n", i, w, h);
-	pred_scalespace[minlod - i - 1] = vec_image_new(w,h);
+      for(int i = img_scale_cnt + sub_space_cnt - 1; i >= 0; i--){
+	scalespace[i] = vec_image_new(w,h);
 	w /= 2;
 	h /= 2;
       }
-      for(int i = 0; i < minlod;i++){
-	vec_image * s = pred_scalespace[i];
+      for(int i = 0; i < img_scale_cnt + sub_space_cnt;i++){              
+	vec_image * s = scalespace[i];
 	if(s == NULL){
 	  logd("Null..\n");
 	} else {
@@ -229,32 +230,27 @@ bool optical_flow_single_scale_test3(){
       }
     }
 
-    
-    //int sizes[15] ={3,3,3,3,5,5,9,9,5,5};
-    for(int it3 = 0; it3 < 1; it3++){
-    for(int i = 8; i >=3 ; i--){
-      int scale = minlod - i - 1;
-      sprintf(buf, "scalespace/ss2_%i.png", i);
+
+    for(int img_scale = 0; img_scale < img_scale_cnt ; img_scale++){
+      int sub_space = img_scale + sub_space_cnt;
+      ASSERT(sub_space >= 0);
+      sprintf(buf, "scalespace2_1/%i.png", img_scale);
       rgb_image * img1 = load_image(buf);
-      sprintf(buf, "scalespace/ss1_%i.png", i);
+      sprintf(buf, "scalespace2_2/%i.png", img_scale);
       rgb_image * img2 = load_image(buf);
       logd("size: %i %i\n", img1->width, img1->height);
       sprintf(buf, "testout2/%i scaleup.png", idx++);
-      save_pred(pred_scalespace[scale], buf);
-      vec_image * error = vec_image_new(img1->width, img1->height);
-      for(int it = 0; it < 20; it++){
-	ASSERT(scale >= 0);
+      save_pred(scalespace[sub_space], buf);
+      float_image * error = float_image_new(img1->width, img1->height);
+      for(int it = 0; it < 3; it++){
+	optical_flow_3(img1, img2, scalespace, error, sub_space, 7);
 
-	optical_flow_3(img1, img2, pred_scalespace, error, scale, 5);//sizes[i]);
+	sprintf(buf, "testout2/%i_error.png", idx);
+	float_image_normalize(error);
+	float_image_save(buf, error);
 
-	for(int it2 = 0; it2 < 5; it2++){
-	  sprintf(buf, "testout2/%i_%i_img.png", idx, it2);
-	  save_error(error, buf);
-	}
-
-	for(int i = 0; i < 20; i++)
-	  compress_scalespace(pred_scalespace, scale);
-	//memset(pred_scalespace[scale]->vectors, 0, pred_scalespace[scale]->width* pred_scalespace[scale]->height * sizeof(vec2));
+	for(int i = 0; i < 5; i++)
+	  compress_scalespace(scalespace, sub_space);
 	idx++;
       }
       rgb_image * testimg = rgb_image_new(img1->width, img1->height);
@@ -263,10 +259,9 @@ bool optical_flow_single_scale_test3(){
 	memset(testimg->pixels,0,testimg->width * testimg->height * sizeof(testimg->pixels[0]));
 	for(int y = 0; y < img1->height; y++){
 	  for(int x = 0; x < img1->width; x++){
-	    if(vec_image_at(error,x,y)->x > 5)
+	    if(float_image_get(error, x, y) > 0.5)
 	      continue;
-	    vec2 vector = calc_scalespace_vector(pred_scalespace, x, y, scale);
-	    //vector = vec2_scale(vector, 2);
+	    vec2 vector = calc_scalespace_vector(scalespace, x, y, sub_space);
 	    vec2 pt = vec2_add(vec2_new(x,y), vec2_scale(vector, t));
 	    t_rgb * px = rgb_image_at(testimg, pt.x, pt.y);
 	    if(px != NULL)
@@ -285,9 +280,8 @@ bool optical_flow_single_scale_test3(){
       rgb_image_delete(&img1);
       rgb_image_delete(&img2);
       rgb_image_delete(&testimg);
-      
-    }
-    scalespace_print(pred_scalespace, 8);
+      float_image_delete(&error);
+      scalespace_print(scalespace, sub_space_cnt);
     }
   }
   return TEST_SUCCESS;
@@ -380,19 +374,6 @@ void construct_scalespace(rgb_image ** ss, rgb_image * img, int count){
     img = rgb_image_blur_subsample(img, 0.5);
     ss[i] = img;
   }
-}
-
-void save_error(const vec_image * error, const char * path){
-  rgb_image * out = rgb_image_new(error->width,error->height);
-  for(int i = 0; i < error->width * error->height; i++){
-    vec2 offset = error->vectors[i];
-    if(offset.x > 255){
-      offset.y = 255;
-      offset.x = 255;
-    }
-    out->pixels[i] = (t_rgb){offset.x,offset.y,offset.y};    
-  }
-  rgb_image_save(path, out);
 }
 
 vec2 save_pred(const vec_image * pred, const char * path){
@@ -588,5 +569,113 @@ bool window_function_test() {
   }
   ASSERT(window_function_count(&wf) == (9 - startx) * (8 - starty));
   ASSERT(hit_mid);
+  return TEST_SUCCESS;
+}
+
+void create_scalespace_2(const char * base_img, const char * folder, int n_scales){
+  ensure_directory(folder);
+  float_image * kernel = float_image_new(7, 7);
+  float_image_gaussian_kernel(kernel, 1.3);
+  rgb_image * img = load_image(base_img);
+  while(true){
+    char buf[100];
+    sprintf(buf, "%s/%i.png", folder, n_scales);
+    logd("saving as %s\n", buf);
+    rgb_image_save(buf, img);
+    //rgb_image * new = rgb_image_new(base->width / 2, base->height / 2);
+    if(n_scales == 0)
+      break;
+    n_scales--;
+    rgb_image * next = rgb_image_new(img->width / 2, img->height / 2);
+    rgb_image_conv_kernel(img, next, kernel, true);
+    rgb_image_delete(&img);
+    img = next;
+  }
+  rgb_image_delete(&img);
+  float_image_delete(&kernel);
+}
+
+void create_scalespaces(int cnt){
+  //create_scalespace_2("f1/IMG1.jpg", "scalespace2_1", cnt);
+  //create_scalespace_2("f1/IMG2.jpg", "scalespace2_2", cnt);
+  create_scalespace_2("f4/img1.png", "scalespace2_1", cnt);
+  create_scalespace_2("f4/img2.png", "scalespace2_2", cnt);
+}
+
+bool image_kernel_test(){
+  
+  int width = 16, height = 21;
+  rgb_image * base = rgb_image_new(width, height);
+  rgb_image * kernel_test = rgb_image_new(base->width, base->height);
+  float_image * kernel = float_image_new(3, 3);
+  
+  *rgb_image_at(base, width / 2, height / 2) = t_rgb_new(100, 100, 100);
+  *rgb_image_at(base, width / 2 + 1, height / 2) = t_rgb_new(100, 100, 100);
+  *rgb_image_at(base, width / 2 -1, height / 2) = t_rgb_new(100, 100, 100);
+  for(int j = 0; j < 3; j++){
+    for(int i = 0; i < 3; i++){
+      *float_image_at(kernel, i, j) = 9;
+    }
+  }
+  
+  rgb_image_conv_kernel(base, kernel_test, kernel, true);
+  
+  { // tests
+    t_rgb * cpixs = rgb_image_at(kernel_test, width / 2, height / 2);
+    int centerc = 300 / 9, offset = 0;
+    TEST_ASSERT(cpixs[offset].r == centerc && cpixs[offset].g == centerc && cpixs[offset].b == centerc);
+    centerc = 200 / 9; offset = -1;
+    TEST_ASSERT(cpixs[offset].r == centerc && cpixs[offset].g == centerc && cpixs[offset].b == centerc);
+    offset = -1;
+    TEST_ASSERT(cpixs[offset].r == centerc && cpixs[offset].g == centerc && cpixs[offset].b == centerc);
+    offset = -2; centerc = 100 / 9;
+    TEST_ASSERT(cpixs[offset].r == centerc && cpixs[offset].g == centerc && cpixs[offset].b == centerc);
+    offset = -3; centerc = 0;
+    TEST_ASSERT(cpixs[offset].r == centerc && cpixs[offset].g == centerc && cpixs[offset].b == centerc);
+  }
+
+  rgb_image_delete(&base);
+  rgb_image_delete(&kernel_test);
+  float_image_delete(&kernel);
+  
+  return TEST_SUCCESS;
+}
+
+bool gauss_kernel_test(){
+
+  int width = 15, height = 21;
+  rgb_image * base = rgb_image_new(width, height);
+  rgb_image * kernel_test = rgb_image_new(base->width / 2, base->height / 2);
+  float_image * kernel = float_image_new(7, 7);
+  
+  *rgb_image_at(base, width / 2, height / 2) = t_rgb_new(100, 100, 100);
+  *rgb_image_at(base, width / 2 + 1, height / 2) = t_rgb_new(100, 100, 100);
+  *rgb_image_at(base, width / 2 + 3, height / 2 + 1) = t_rgb_new(100, 100, 100);
+  
+  float_image_gaussian_kernel(kernel, 0.9);
+  rgb_image_conv_kernel(base, kernel_test, kernel, true);
+  
+  rgb_image_delete(&base);
+  rgb_image_delete(&kernel_test);
+  float_image_delete(&kernel);
+  
+  return TEST_SUCCESS;
+}
+
+bool vr_video_test(){
+  TEST(vec_image_average_test);
+  TEST(vec_image_median_test);
+  TEST(window_function_test);
+  TEST(compress_scalespace_test);
+  //TEST(distance_field_test_3k);
+  //TEST(optical_flow_test);
+  //TEST(optical_flow_single_scale_test);
+  //TEST(scale_vec_test);
+  //TEST(test_visualize_flow);
+  //TEST(optical_flow_single_scale_test2);
+  
+  TEST(image_kernel_test);
+  TEST(gauss_kernel_test);
+  TEST(optical_flow_single_scale_test3);
   return TEST_SUCCESS;
 }
