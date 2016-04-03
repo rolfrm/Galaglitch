@@ -1,5 +1,5 @@
 OPT = -g3 -O0
-LIB_SOURCES =  iron/mem.c iron/process.c iron/array.c iron/math.c iron/time.c  iron/log.c iron/fileio.c iron/linmath.c iron/test.c test.c xxhash.c hash.c shader_utils.c data_table.c string_table.c game.c stb_image.c  image.c image_filters.c optical_flow.c vr_video_test.c distance_fields.c
+LIB_SOURCES =  iron/mem.c iron/process.c iron/array.c iron/math.c iron/time.c  iron/log.c iron/fileio.c iron/linmath.c iron/test.c test.c xxhash.c hash.c shader_utils.c data_table.c game.c stb_image.c  image.c image_filters.c optical_flow.c vr_video_test.c distance_fields.c string_table.c 
 CC = gcc
 TARGET = glitch
 LIB_OBJECTS =$(LIB_SOURCES:.c=.o)

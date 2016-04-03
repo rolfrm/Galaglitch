@@ -188,10 +188,6 @@ void compress_scalespace(vec_image ** scalespace, int max_scale){
 
     vec_image * avgimg = vec_image_new(w, h);
     average_sample(v2, avgimg, 3);
-    //for(int i = 0; i < w * h; i++){
-    //  avgimg->vectors[i] = vec2_round(avgimg->vectors[i]);
-    //}
-    //vec_image_gauss(v2, avgimg, 3, 1.0);
     vec2 scale_add(vec2 a, vec2 avg){
       vec2 r = vec2_add(a, vec2_div(avg, vec2_new(sw, sh)));
       return r;
@@ -269,13 +265,13 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
       if(true){
 	int _i = CLAMP(0, w-1, pred2.x + i, int);
 	int _j = CLAMP(0, h-1, pred2.y + j, int);
-	//if(i == 10 && j == 10)
-	//  logd("_i/_j : %i %i\n", _i, _j);
-	error = rgb_error(px1, *rgb_image_at((rgb_image *)img2, _i,  _j));
+	t_rgb px2 = *rgb_image_at((rgb_image *)img2, _i,  _j);
+	error = sqrtf(rgb_error(px1, px2)) + scale * 0.1;
 	current = pred2;
 
 	if( i == w /2 && j == h / 2){
-	  vec2_print(pred2); 
+	  vec2_print(pred2);
+	  logd(" %2x%2x%2x %2x%2x%2x ", px1.r, px1.g, px1.b, px2.r, px2.g, px2.b);
 	  logd("   start: %i %i %f\n", _i, _j, error);
 	}
       }
@@ -327,7 +323,7 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	}
 	//if(s == scale)
 	//  logd("%f\n", error);
-	if(s == scale && error > 5){
+	if(false && s == scale && error > 5){
 	  logd("This happens..\n");
 	  error = 5;
 	  current = predv;

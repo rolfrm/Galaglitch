@@ -200,8 +200,10 @@ void scalespace_print(vec_image ** scalespace, int scale){
 
 void create_scalespaces(int n);
 bool optical_flow_single_scale_test3(){
-  create_scalespaces(4);
-  const int sub_space_cnt = 0;
+  //create_scalespaces(4);
+  ensure_directory("testout2");
+  ensure_directory("results");
+  const int sub_space_cnt = 1;
   const int img_scale_cnt = 4;
   char buf[100]; 
   int idx = 0;
@@ -239,6 +241,7 @@ bool optical_flow_single_scale_test3(){
       sprintf(buf, "scalespace2_2/%i.png", img_scale);
       rgb_image * img2 = load_image(buf);
       logd("size: %i %i\n", img1->width, img1->height);
+
       sprintf(buf, "testout2/%i scaleup.png", idx++);
       save_pred(scalespace[sub_space], buf);
       float_image * error = float_image_new(img1->width, img1->height);
@@ -249,7 +252,7 @@ bool optical_flow_single_scale_test3(){
 	float_image_normalize(error);
 	float_image_save(buf, error);
 
-	for(int i = 0; i < 5; i++)
+	for(int i = 0; i < 10; i++)
 	  compress_scalespace(scalespace, sub_space);
 	idx++;
       }
@@ -259,7 +262,7 @@ bool optical_flow_single_scale_test3(){
 	memset(testimg->pixels,0,testimg->width * testimg->height * sizeof(testimg->pixels[0]));
 	for(int y = 0; y < img1->height; y++){
 	  for(int x = 0; x < img1->width; x++){
-	    if(float_image_get(error, x, y) > 0.5)
+	    if(float_image_get(error, x, y) > 1)
 	      continue;
 	    vec2 vector = calc_scalespace_vector(scalespace, x, y, sub_space);
 	    vec2 pt = vec2_add(vec2_new(x,y), vec2_scale(vector, t));
@@ -281,7 +284,7 @@ bool optical_flow_single_scale_test3(){
       rgb_image_delete(&img2);
       rgb_image_delete(&testimg);
       float_image_delete(&error);
-      scalespace_print(scalespace, sub_space_cnt);
+      //scalespace_print(scalespace, sub_space_cnt);
     }
   }
   return TEST_SUCCESS;
@@ -598,8 +601,8 @@ void create_scalespace_2(const char * base_img, const char * folder, int n_scale
 void create_scalespaces(int cnt){
   //create_scalespace_2("f1/IMG1.jpg", "scalespace2_1", cnt);
   //create_scalespace_2("f1/IMG2.jpg", "scalespace2_2", cnt);
-  create_scalespace_2("f4/img1.png", "scalespace2_1", cnt);
-  create_scalespace_2("f4/img2.png", "scalespace2_2", cnt);
+  create_scalespace_2("img1.png", "scalespace2_1", cnt);
+  create_scalespace_2("img2.png", "scalespace2_2", cnt);
 }
 
 bool image_kernel_test(){
