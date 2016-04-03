@@ -20,6 +20,7 @@ typedef struct{
 
 bool vec2_cmp(vec2 v1, vec2 v2);
 vec2 * vec_image_at(vec_image * img, int x, int y);
+vec2 vec_image_get(const vec_image * img, int x, int y);
 void vec_image_delete(vec_image ** v);
 vec_image * vec_image_new(int width, int height);
 vec_image * vec_image_new(int width, int height);

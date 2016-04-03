@@ -160,6 +160,11 @@ vec2 * vec_image_at(vec_image * img, int x, int y){
   return NULL;
 }
 
+vec2 vec_image_get(const vec_image * img, int x, int y){
+  ASSERT(x >= 0 && x < img->width && y >= 0 && y < img->height); 
+  return img->vectors[x + y * img->width];
+}
+
 bool vec2_cmp(vec2 v1, vec2 v2){
   return v1.x == v2.x && v1.y == v2.y;
 }

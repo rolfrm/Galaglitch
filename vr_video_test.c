@@ -189,7 +189,8 @@ void scalespace_print(vec_image ** scalespace, int scale){
   vec_image * img2 = vec_image_new(img->width, img->height);
   for(int j = 0; j < img2->height; j++){
     for(int i = 0; i < img2->width; i++){
-      *vec_image_at(img2, i,j) = calc_scalespace_vector(scalespace, i, j, scale);
+      int sig;
+      *vec_image_at(img2, i,j) = calc_scalespace_vector(scalespace, i, j, scale, &sig);
     }
   }
   vec_image_print(img2);
@@ -203,7 +204,7 @@ bool optical_flow_single_scale_test3(){
   //create_scalespaces(4);
   ensure_directory("testout2");
   ensure_directory("results");
-  const int sub_space_cnt = 1;
+  const int sub_space_cnt = 4;
   const int img_scale_cnt = 4;
   char buf[100]; 
   int idx = 0;
@@ -245,8 +246,8 @@ bool optical_flow_single_scale_test3(){
       sprintf(buf, "testout2/%i scaleup.png", idx++);
       save_pred(scalespace[sub_space], buf);
       float_image * error = float_image_new(img1->width, img1->height);
-      for(int it = 0; it < 3; it++){
-	optical_flow_3(img1, img2, scalespace, error, sub_space, 7);
+      for(int it = 0; it < 5; it++){
+	optical_flow_3(img1, img2, scalespace, error, sub_space, 13);
 
 	sprintf(buf, "testout2/%i_error.png", idx);
 	float_image_normalize(error);
@@ -264,7 +265,8 @@ bool optical_flow_single_scale_test3(){
 	  for(int x = 0; x < img1->width; x++){
 	    if(float_image_get(error, x, y) > 1)
 	      continue;
-	    vec2 vector = calc_scalespace_vector(scalespace, x, y, sub_space);
+	    int sig;
+	    vec2 vector = calc_scalespace_vector(scalespace, x, y, sub_space, &sig);
 	    vec2 pt = vec2_add(vec2_new(x,y), vec2_scale(vector, t));
 	    t_rgb * px = rgb_image_at(testimg, pt.x, pt.y);
 	    if(px != NULL)
@@ -544,7 +546,8 @@ bool compress_scalespace_test(){
       }*/
     for(int j = 0; j < s_last->height; j++){
       for(int i = 0; i < s_last->width; i++){
-	vec2 backcalc = calc_scalespace_vector(levels,i,j,last_idx);
+	int sig;
+	vec2 backcalc = calc_scalespace_vector(levels,i,j,last_idx, &sig);
 	//vec2_print(backcalc);logd("\n");
 	ASSERT(vec2_cmpe(backcalc, vec2_new(i,j), 0.001));
       }
