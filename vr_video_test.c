@@ -199,12 +199,28 @@ void scalespace_print(vec_image ** scalespace, int scale){
   
 }
 
+
+void vec_image_save_visualization(const vec_image * img, const char * path){
+  vec2 min = vec2_new1(f32_infinity);
+  vec2 max = vec2_new(f32_negative_infinity);
+  int size = img->width * img->height;
+
+  for(int i = 0; i < size; i++){
+    vec2 v = img->vectors[i];
+    min = vec2_min(v, min);
+    max = vec2_max(v, max);
+  }
+  UNUSED(path);
+  vec2_print(max);vec2_print(min);logd("\n");
+  
+}
+
 void create_scalespaces(int n);
 bool optical_flow_single_scale_test3(){
   //create_scalespaces(4);
   ensure_directory("testout2");
-  ensure_directory("results");
-  const int sub_space_cnt = 4;
+  ensure_directory("results"); 
+  const int sub_space_cnt = 1;
   const int img_scale_cnt = 4;
   char buf[100]; 
   int idx = 0;
@@ -230,9 +246,11 @@ bool optical_flow_single_scale_test3(){
 	} else {
 	  logd("lod: %i (%i %i)\n", i,  s->width, s->height);
 	}
+	TEST_ASSERT_NOT_EQUAL(s, NULL);
+	TEST_ASSERT_NOT_EQUAL(s->width , 0);
+	TEST_ASSERT_NOT_EQUAL(s->height, 0);
       }
     }
-
 
     for(int img_scale = 0; img_scale < img_scale_cnt ; img_scale++){
       int sub_space = img_scale + sub_space_cnt;

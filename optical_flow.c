@@ -214,11 +214,11 @@ vec2 calc_scalespace_vector( vec_image ** const scalespace, int x, int y, int sc
   for(int i = scale; i >= 0; i--){
     vec_image * space = scalespace[i];
     vec2 v = vec_image_get(space, x, y);
-    if(vec2_cmpe(v,vec2_zero, 0.001))
-      continue;
-    if(sig == -1)
-      sig = i;
-    vector = vec2_add(vector, vec2_mul(v, vec2_new(scaleupx, scaleupy)));
+    if(!vec2_cmpe(v,vec2_zero, 0.001)){
+      vector = vec2_add(vector, vec2_mul(v, vec2_new(scaleupx, scaleupy)));
+      if(sig == -1)
+	sig = i;
+    }
     if(i > 0){
       float dw = space->width / (float) scalespace[i - 1]->width;
       float dh = space->height / (float) scalespace[i - 1]->height;
@@ -227,38 +227,17 @@ vec2 calc_scalespace_vector( vec_image ** const scalespace, int x, int y, int sc
       scaleupx *= dw;
       scaleupy *= dh;
     }
-      
   }
+  if(sig == -1)
+    sig = 0;
   *last_significant_scale = sig;
   
-  return vector;
-}
-vec2 calc_scalespace_vector2(vec_image ** scalespace, int x, int y, int scale){
-  float dx = 1.0;
-  float dy = 1.0;
-  float sx = 1.0;
-  float sy = 1.0;
-  vec2 vector = vec2_new(0,0);
-  for(int s = scale; s >= 0; s--){
-    int _x = floor(x / sx), _y = floor(y / sy);
-    vec2 * v = vec_image_at(scalespace[s], _x, _y);
-    logd("v: %i: %p %i %i %f %f\n", s, v, _x, _y, sx, sy);
-    vector = vec2_add(vector, vec2_mul(*v, vec2_new(dx * sx, dy * sy)));
-    if(scale > 0){
-      float dw = scalespace[scale]->width / (float)scalespace[scale - 1]->width;
-      float dh = scalespace[scale]->height / (float)scalespace[scale - 1]->height;
-      logd("%f %f\n", dw, dh);
-      sx *= dw;
-      sy *= dh;
-    }
-  }
   return vector;
 }
 
 void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 		    vec_image ** pred_scalespace, float_image * error_img,
-		    const int scale,
-		    const int window_size){
+		    const int scale, const int window_size){
   const int w = img1->width, h = img1->height;
   vec_image * pred = pred_scalespace[scale];
   ASSERT(img2->width == w && img2->height == h);
@@ -319,7 +298,7 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	  vec2 offset = vec2_new(ii - i, jj - j);
 	  float penalty = vec2_len(vec2_sub(offset, pred2));
 	  t_rgb px2 = *rgb_image_at((rgb_image *)img2, ii, jj);
-	  float err = sqrtf(rgb_error(px1, px2)) + penalty;
+	  float err = sqrtf(rgb_error(px1, px2)) + penalty + scale * 0.1f;
 	  //if(i == 10 && j == 10)
 	  //  logd("i/j: %i %i \n", ii, jj);
 	  if(err < error){
@@ -337,7 +316,6 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	//if(s == scale)
 	//  logd("%f\n", error);
 	if(s == scale && error > 5){
-	  logd("This happens..\n");
 	  error = 5;
 	  current = predv;
 	  improved = true;
