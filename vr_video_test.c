@@ -14,6 +14,7 @@
 #include <iron/linmath.h>
 #include <iron/log.h>
 #include <iron/fileio.h>
+#include <iron/math.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -202,17 +203,29 @@ void scalespace_print(vec_image ** scalespace, int scale){
 
 void vec_image_save_visualization(const vec_image * img, const char * path){
   vec2 min = vec2_new1(f32_infinity);
-  vec2 max = vec2_new(f32_negative_infinity);
-  int size = img->width * img->height;
+  vec2 max = vec2_new1(f32_negative_infinity);
+  const int size = img->width * img->height;
 
   for(int i = 0; i < size; i++){
     vec2 v = img->vectors[i];
     min = vec2_min(v, min);
     max = vec2_max(v, max);
   }
+  
   UNUSED(path);
   vec2_print(max);vec2_print(min);logd("\n");
+  vec2 span = vec2_sub(max, min);
+  rgb_image * img_out = rgb_image_new(img->width, img->height);
   
+  for(int i = 0; i < size; i++){
+    vec2 v = img->vectors[i];
+    v = vec2_scale(vec2_div(vec2_sub(v, min), span), 255.0f);
+    t_rgb col = { .r = v.x, .g = v.y, .b = (v.x + v.y) * 0.5f};
+    img_out->pixels[i] = col;
+  }
+
+  rgb_image_save(path, img_out);
+  rgb_image_delete(&img_out);
 }
 
 void create_scalespaces(int n);
@@ -265,12 +278,14 @@ bool optical_flow_single_scale_test3(){
       save_pred(scalespace[sub_space], buf);
       float_image * error = float_image_new(img1->width, img1->height);
       for(int it = 0; it < 5; it++){
-	optical_flow_3(img1, img2, scalespace, error, sub_space, 13);
+	optical_flow_3(img1, img2, scalespace, error, sub_space, 31);
 
 	sprintf(buf, "testout2/%i_error.png", idx);
 	float_image_normalize(error);
 	float_image_save(buf, error);
-
+	sprintf(buf, "testout2/%ivec.png", idx);
+	//vec_image_save_visualization(const vec_image * img, const char * path)
+	vec_image_save_visualization(scalespace[sub_space], buf);
 	for(int i = 0; i < 10; i++)
 	  compress_scalespace(scalespace, sub_space);
 	idx++;
