@@ -14,6 +14,7 @@
 #include <iron/linmath.h>
 #include <iron/log.h>
 #include <iron/fileio.h>
+#include <iron/math.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -200,9 +201,9 @@ void scalespace_print(vec_image ** scalespace, int scale){
 }
 
 
-void vec_image_save_visualization(const vec_image * img, const char * path){
+void vec_image_save_visualization(const char * path, const vec_image * img){
   vec2 min = vec2_new1(f32_infinity);
-  vec2 max = vec2_new(f32_negative_infinity);
+  vec2 max = vec2_new1(f32_negative_infinity);
   int size = img->width * img->height;
 
   for(int i = 0; i < size; i++){
@@ -212,7 +213,34 @@ void vec_image_save_visualization(const vec_image * img, const char * path){
   }
   UNUSED(path);
   vec2_print(max);vec2_print(min);logd("\n");
-  
+  vec2 span = vec2_sub(max, min);
+  rgb_image * img_out = rgb_image_new(img->width, img->height);
+  for(int i = 0; i < size; i++){
+    vec2 v = img->vectors[i];
+    v = vec2_sub(v, min);
+    v = vec2_div(v, span);
+    v = vec2_scale(v, 255.0f);
+    t_rgb c = {.r = v.x, .g = v.y, .b = 0};
+    img_out->pixels[i] = c;
+  }
+  rgb_image_save(path, img_out);
+  rgb_image_delete(&img_out); 
+}
+
+void scalespace_save_visualization(const char * path, vec_image ** const scalespace, int scale){
+  vec_image * im = NULL;
+  {
+    vec_image * vimg = scalespace[scale];
+    im = vec_image_new(vimg->width, vimg->height);
+  }
+  int sig;
+  for(int j = 0; j < im->height; j++){
+    for(int i = 0; i < im->width; i++){
+      im->vectors[i + j * im->width] = calc_scalespace_vector(scalespace, i, j, scale, &sig);
+    }
+  }
+  vec_image_save_visualization(path, im);
+  vec_image_delete(&im);
 }
 
 void create_scalespaces(int n);
@@ -220,7 +248,7 @@ bool optical_flow_single_scale_test3(){
   //create_scalespaces(4);
   ensure_directory("testout2");
   ensure_directory("results"); 
-  const int sub_space_cnt = 1;
+  const int sub_space_cnt = 4;
   const int img_scale_cnt = 4;
   char buf[100]; 
   int idx = 0;
@@ -255,9 +283,9 @@ bool optical_flow_single_scale_test3(){
     for(int img_scale = 0; img_scale < img_scale_cnt ; img_scale++){
       int sub_space = img_scale + sub_space_cnt;
       ASSERT(sub_space >= 0);
-      sprintf(buf, "scalespace2_1/%i.png", img_scale);
-      rgb_image * img1 = load_image(buf);
       sprintf(buf, "scalespace2_2/%i.png", img_scale);
+      rgb_image * img1 = load_image(buf);
+      sprintf(buf, "scalespace2_1/%i.png", img_scale);
       rgb_image * img2 = load_image(buf);
       logd("size: %i %i\n", img1->width, img1->height);
 
@@ -271,10 +299,13 @@ bool optical_flow_single_scale_test3(){
 	float_image_normalize(error);
 	float_image_save(buf, error);
 	sprintf(buf, "testout2/%ivec.png", idx);
-	//vec_image_save_visualization(const vec_image * img, const char * path)
-	vec_image_save_visualization(scalespace[sub_space], buf);
+	vec_image_save_visualization(buf, scalespace[sub_space]);
+	sprintf(buf, "testout2/%iss.png", idx);
+	scalespace_save_visualization(buf, scalespace, sub_space); 
 	for(int i = 0; i < 10; i++)
 	  compress_scalespace(scalespace, sub_space);
+	sprintf(buf, "testout2/%iss2.png", idx);
+	scalespace_save_visualization(buf, scalespace, sub_space); 
 	idx++;
       }
       rgb_image * testimg = rgb_image_new(img1->width, img1->height);

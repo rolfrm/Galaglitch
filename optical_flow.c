@@ -298,7 +298,7 @@ void optical_flow_3(const rgb_image * img1, const rgb_image * img2,
 	  vec2 offset = vec2_new(ii - i, jj - j);
 	  float penalty = vec2_len(vec2_sub(offset, pred2));
 	  t_rgb px2 = *rgb_image_at((rgb_image *)img2, ii, jj);
-	  float err = sqrtf(rgb_error(px1, px2)) + penalty + scale * 0.1f;
+	  float err = sqrtf(rgb_error(px1, px2)) + penalty * scale * 0.1f;
 	  //if(i == 10 && j == 10)
 	  //  logd("i/j: %i %i \n", ii, jj);
 	  if(err < error){
