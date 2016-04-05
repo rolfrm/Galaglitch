@@ -215,6 +215,24 @@ void vec_image_save_visualization(const vec_image * img, const char * path){
   
 }
 
+
+void save_scalespace_visualization(vec_image ** const scalespace, int scale, const char * path){
+  vec_image * to_save;
+  {
+    const vec_image * last = scalespace[scale];
+    to_save = vec_image_new(last->width, last->height);
+  }
+  for(int j = 0; j < to_save->height; j++){
+    for(int i = 0; i < to_save->width; i++){
+      int sig;
+      to_save->vectors[i + j * to_save->width] =
+	calc_scalespace_vector(scalespace, i, j, scale, &sig);
+    }
+  }
+  vec_image_save_visualization(to_save, path);
+}
+
+
 void create_scalespaces(int n);
 bool optical_flow_single_scale_test3(){
   //create_scalespaces(4);
@@ -270,9 +288,11 @@ bool optical_flow_single_scale_test3(){
 	sprintf(buf, "testout2/%i_error.png", idx);
 	float_image_normalize(error);
 	float_image_save(buf, error);
-
+	
 	for(int i = 0; i < 10; i++)
 	  compress_scalespace(scalespace, sub_space);
+	sprintf(buf, "testout2/%i_vector.png", idx);
+	save_scalespace_visualization(scalespace, sub_space, buf);
 	idx++;
       }
       rgb_image * testimg = rgb_image_new(img1->width, img1->height);
